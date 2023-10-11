@@ -7,20 +7,25 @@ import os
 import glob
 import matplotlib.pyplot as plt
 import logging
-
+import pandas as pd
 import config
 from utilities import int16_to_float32
 
 
 class GtzanDataset(object):
-    def __init__(self):
+    def __init__(self, dataset_file):
         """This class takes the meta of an audio clip as input, and return 
         the waveform and target of the audio clip. This class is used by DataLoader. 
         Args:
           clip_samples: int
           classes_num: int
         """
-        pass
+        self.dataframe = pd.read_csv(dataset_file)
+
+        self.label_col_name = "IAB Vector"
+        self.labels = self.dataframe[self.label_col_name]
+        self.features = self.dataframe.drop(columns = [self.label_col_name])
+        
     
     def __getitem__(self, meta):
         """Load waveform and target of an audio clip.
@@ -35,7 +40,7 @@ class GtzanDataset(object):
             'audio_name': str, 
             'waveform': (clip_samples,), 
             'target': (classes_num,)}
-        """
+        
         hdf5_path = meta['hdf5_path']
         index_in_hdf5 = meta['index_in_hdf5']
 
@@ -48,8 +53,9 @@ class GtzanDataset(object):
             'audio_name': audio_name, 'waveform': waveform, 'target': target}
             
         return data_dict
-
-
+        """
+    def __len__(self):
+        return len(self.dataframe)
 class Base(object):
     def __init__(self, indexes_hdf5_path, batch_size, random_seed):
         """Base class of train sampler.
