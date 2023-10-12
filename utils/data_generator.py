@@ -20,14 +20,18 @@ class GtzanDataset(object):
           clip_samples: int
           classes_num: int
         """
-        self.dataframe = pd.read_csv(dataset_file)
+        self.dataframe = pd.read_csv(dataset_file, skiprows = 1)
 
         self.label_col_name = "IAB Vector"
         self.labels = self.dataframe[self.label_col_name]
         self.features = self.dataframe.drop(columns = [self.label_col_name])
         
     
-    def __getitem__(self, meta):
+    def __getitem__(self, idx):
+        # get the audio clip from the google drive(?)
+        audio_clip_id = self.features["ID"].iloc[idx]
+        label = self.labels.iloc[idx]
+        return audio_clip_id, label
         """Load waveform and target of an audio clip.
         
         Args:
@@ -56,6 +60,7 @@ class GtzanDataset(object):
         """
     def __len__(self):
         return len(self.dataframe)
+    
 class Base(object):
     def __init__(self, indexes_hdf5_path, batch_size, random_seed):
         """Base class of train sampler.
