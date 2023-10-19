@@ -112,12 +112,19 @@ def train(args):
 
     # Data loader
     train_loader = torch.utils.data.DataLoader(dataset=dataset, 
-        batch_sampler=train_sampler, collate_fn=collate_fn, 
+        batch_size=batch_size, shuffle = True, 
         num_workers=num_workers, pin_memory=True)
 
     validate_loader = torch.utils.data.DataLoader(dataset=dataset, 
-        batch_sampler=validate_sampler, collate_fn=collate_fn, 
+        batch_size=batch_size, shuffle = False, 
         num_workers=num_workers, pin_memory=True)
+    # train_loader = torch.utils.data.DataLoader(dataset=dataset, 
+    #     batch_sampler=train_sampler, collate_fn=collate_fn, 
+    #     num_workers=num_workers, pin_memory=True)
+
+    # validate_loader = torch.utils.data.DataLoader(dataset=dataset, 
+    #     batch_sampler=validate_sampler, collate_fn=collate_fn, 
+    #     num_workers=num_workers, pin_memory=True)
 
     if 'cuda' in device:
         model.to(device)
