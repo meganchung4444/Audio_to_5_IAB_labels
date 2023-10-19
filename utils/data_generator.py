@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import logging
 import pandas as pd
 import torch
+import os
 import config
 from utilities import int16_to_float32
 
@@ -22,7 +23,8 @@ class GtzanDataset(object):
           classes_num: int
         """
         self.dataframe = pd.read_csv(dataset_file, skiprows = 1)
-
+        # ask if should just do hdf5
+        # self.dataframe.to_hdf("dataset.h5", key = "data", format = "table")
         self.label_col_name = "IAB Vector"
         self.labels = self.dataframe[self.label_col_name]
         self.features = self.dataframe.drop(columns = [self.label_col_name])
@@ -32,12 +34,14 @@ class GtzanDataset(object):
         # get audio clip path
         folder = "audio folder path"
         audio_clip_id = self.features["ID"].iloc[idx]
-        audio_path = folder + audio_clip_id + ".wav"
+        audio_name = audio_clip_id + ".wav"
+        audio_path = os.path.join(folder, audio_name)
 
         # get label and convert to tensor
         label = self.labels.iloc[idx]
         label_tensor = torch.tensor(label)
-        return audio_path, label_tensor
+        # should i return a dictionary or just the path and label
+        return {"audio_name": audio_path, "target": label_tensor}
         """Load waveform and target of an audio clip.
         
         Args:
