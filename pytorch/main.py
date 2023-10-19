@@ -97,7 +97,7 @@ def train(args):
     print('GPU number: {}'.format(torch.cuda.device_count()))
     model = torch.nn.DataParallel(model)
 
-    dataset = GtzanDataset()
+    dataset = GtzanDataset(dataset_dir)
 
     # Data generator
     train_sampler = TrainSampler(
