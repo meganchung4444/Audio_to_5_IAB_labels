@@ -8,6 +8,7 @@ import glob
 import matplotlib.pyplot as plt
 import logging
 import pandas as pd
+import torch
 import config
 from utilities import int16_to_float32
 
@@ -28,10 +29,15 @@ class GtzanDataset(object):
         
     
     def __getitem__(self, idx):
-        # get the audio clip from the google drive(?)
+        # get audio clip path
+        folder = "audio folder path"
         audio_clip_id = self.features["ID"].iloc[idx]
+        audio_path = folder + audio_clip_id + ".wav"
+
+        # get label and convert to tensor
         label = self.labels.iloc[idx]
-        return audio_clip_id, label
+        label_tensor = torch.tensor(label)
+        return audio_path, label_tensor
         """Load waveform and target of an audio clip.
         
         Args:
@@ -102,7 +108,7 @@ class TrainSampler(object):
         # super(TrainSampler, self).__init__(indexes_hdf5_path, batch_size, 
             # random_seed)
 
-        self.hdf5_path = hdf5_path
+        self.hdf5_path = hdf5_path 
         self.batch_size = batch_size
         self.random_state = np.random.RandomState(random_seed)
 
