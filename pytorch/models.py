@@ -165,7 +165,7 @@ class Transfer_Cnn14(nn.Module):
         """Classifier for a new task using pretrained Cnn14 as a sub module.
         """
         super(Transfer_Cnn14, self).__init__()
-        audioset_classes_num = 6 # modify number of classes to 6
+        audioset_classes_num = 5 # modify number of classes to 5
         
         self.base = Cnn14(sample_rate, window_size, hop_size, mel_bins, fmin, 
             fmax, audioset_classes_num)
