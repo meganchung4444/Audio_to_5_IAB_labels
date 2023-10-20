@@ -112,11 +112,11 @@ def train(args):
 
     # Data loader
     train_loader = torch.utils.data.DataLoader(dataset=dataset, 
-        batch_size=batch_size, shuffle = True, 
+        batch_size=32, shuffle = True, 
         num_workers=num_workers, pin_memory=True)
 
     validate_loader = torch.utils.data.DataLoader(dataset=dataset, 
-        batch_size=batch_size, shuffle = False, 
+        batch_size=32, shuffle = False, 
         num_workers=num_workers, pin_memory=True)
     # train_loader = torch.utils.data.DataLoader(dataset=dataset, 
     #     batch_sampler=train_sampler, collate_fn=collate_fn, 
