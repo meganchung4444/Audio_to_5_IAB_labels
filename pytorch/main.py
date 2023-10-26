@@ -35,8 +35,9 @@ def train(args):
     augmentation = args.augmentation
     learning_rate = args.learning_rate
     batch_size = args.batch_size
-    resume_iteration = args.resume_iteration
-    stop_iteration = args.stop_iteration
+    max_epoch = args.max_epoch
+    # resume_iteration = args.resume_iteration
+    # stop_iteration = args.stop_iteration
     device = 'cuda' if (args.cuda and torch.cuda.is_available()) else 'cpu'
     filename = args.filename
     num_workers = 8
@@ -83,48 +84,20 @@ def train(args):
         logging.info('Load pretrained model from {}'.format(pretrained_checkpoint_path))
         model.load_from_pretrain(pretrained_checkpoint_path)
 
-    if resume_iteration:
-        resume_checkpoint_path = os.path.join(checkpoints_dir, '{}_iterations.pth'.format(resume_iteration))
-        logging.info('Load resume model from {}'.format(resume_checkpoint_path))
-        resume_checkpoint = torch.load(resume_checkpoint_path)
-        model.load_state_dict(resume_checkpoint['model'])
-        statistics_container.load_state_dict(resume_iteration)
-        iteration = resume_checkpoint['iteration']
-    else:
-        iteration = 0
-
     # Parallel
     print('GPU number: {}'.format(torch.cuda.device_count()))
     model = torch.nn.DataParallel(model)
 
     dataset = GtzanDataset(dataset_dir)
-
-    # Data generator
-    train_sampler = TrainSampler(
-        hdf5_path=hdf5_path, 
-        holdout_fold=holdout_fold, 
-        batch_size=batch_size * 2 if 'mixup' in augmentation else batch_size)
-
-    validate_sampler = EvaluateSampler(
-        hdf5_path=hdf5_path, 
-        holdout_fold=holdout_fold, 
-        batch_size=batch_size)
-
+    
     # Data loader
     train_loader = torch.utils.data.DataLoader(dataset=dataset, 
         batch_size=32, shuffle = True, 
         num_workers=num_workers, pin_memory=True)
 
     validate_loader = torch.utils.data.DataLoader(dataset=dataset, 
-        batch_size=32, shuffle = False, 
+        batch_size=1, shuffle = False, 
         num_workers=num_workers, pin_memory=True)
-    # train_loader = torch.utils.data.DataLoader(dataset=dataset, 
-    #     batch_sampler=train_sampler, collate_fn=collate_fn, 
-    #     num_workers=num_workers, pin_memory=True)
-
-    # validate_loader = torch.utils.data.DataLoader(dataset=dataset, 
-    #     batch_sampler=validate_sampler, collate_fn=collate_fn, 
-    #     num_workers=num_workers, pin_memory=True)
 
     if 'cuda' in device:
         model.to(device)
@@ -132,98 +105,84 @@ def train(args):
     # Optimizer
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999),
         eps=1e-08, weight_decay=0., amsgrad=True)
-
-    
-    if 'mixup' in augmentation:
-        mixup_augmenter = Mixup(mixup_alpha=1.)
      
     # Evaluator
     evaluator = Evaluator(model=model)
     
-    train_bgn_time = time.time()
+    # train_bgn_time = time.time()
     
-    # Train on mini batches
-    for batch_data_dict in train_loader:
+    epoch_max = 400
+    # iteration means updating the value once
+    # for every epoch, model will trained num of training samples/batch size
 
-        # import crash
-        # asdf
-        
-        # Evaluate
-        if iteration % 200 == 0 and iteration > 0:
-            if resume_iteration > 0 and iteration == resume_iteration:
-                pass
-            else:
-                logging.info('------------------------------------')
-                logging.info('Iteration: {}'.format(iteration))
+    for epoch in range(epoch_max):
+        # Evaluate/validate for every 5 epoch
+        if epoch % 5 == 0 and epoch > 0:
+            model.eval()
+            logging.info('------------------------------------')
+            logging.info('Iteration: {}'.format(epoch))
 
-                train_fin_time = time.time()
+            
+            # changed kaifeng's code
+            val_begin_time = time.time()
 
-                statistics = evaluator.evaluate(validate_loader)
-                logging.info('Validate accuracy: {:.3f}'.format(statistics['accuracy']))
+            statistics = evaluator.evaluate(validate_loader)
+            logging.info('Validate accuracy: {:.3f}'.format(statistics['accuracy']))
 
-                statistics_container.append(iteration, statistics, 'validate')
-                statistics_container.dump()
+            # statistics_container.append(iteration, statistics, 'validate')
+            # statistics_container.dump()
+            # train_time = val_begin_time - train_bgn_time
+            validate_time = time.time() - val_begin_time
+            logging.info(
+                'Validate time: {:.3f} s'
+                ''.format(validate_time))
+            # logging.info(
+            #     'Train time: {:.3f} s, validate time: {:.3f} s'
+            #     ''.format(train_time, validate_time))
 
-                train_time = train_fin_time - train_bgn_time
-                validate_time = time.time() - train_fin_time
-
-                logging.info(
-                    'Train time: {:.3f} s, validate time: {:.3f} s'
-                    ''.format(train_time, validate_time))
-
-                train_bgn_time = time.time()
-
-        # Save model 
-        if iteration % 2000 == 0 and iteration > 0:
-            checkpoint = {
-                'iteration': iteration, 
-                'model': model.module.state_dict()}
-
-            checkpoint_path = os.path.join(
-                checkpoints_dir, '{}_iterations.pth'.format(iteration))
+        # Train on mini batches
+        # 800 training samples, batch size 32, train_loader made 800/32 batches 
+        train_bgn_time = time.time()
+        for batch_data_dict in train_loader:
+            
+            # Move data to GPU
+            for key in batch_data_dict.keys():
+                batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
                 
-            torch.save(checkpoint, checkpoint_path)
-            logging.info('Model saved to {}'.format(checkpoint_path))
-        
-        if 'mixup' in augmentation:
-            batch_data_dict['mixup_lambda'] = mixup_augmenter.get_lambda(len(batch_data_dict['waveform']))
-        
-        # Move data to GPU
-        for key in batch_data_dict.keys():
-            batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
-        
-        # Train
-        model.train()
+            # Train
+            model.train()
 
-        if 'mixup' in augmentation:
-            batch_output_dict = model(batch_data_dict['waveform'], 
-                batch_data_dict['mixup_lambda'])
-            """{'clipwise_output': (batch_size, classes_num), ...}"""
-
-            batch_target_dict = {'target': do_mixup(batch_data_dict['target'], 
-                batch_data_dict['mixup_lambda'])}
-            """{'target': (batch_size, classes_num)}"""
-        else:
+            # inference for training data
+            # target that model predicted
             batch_output_dict = model(batch_data_dict['waveform'], None)
             """{'clipwise_output': (batch_size, classes_num), ...}"""
-
+            # target: label
             batch_target_dict = {'target': batch_data_dict['target']}
             """{'target': (batch_size, classes_num)}"""
 
-        # loss
-        loss = loss_func(batch_output_dict, batch_target_dict)
-        print(iteration, loss)
+            # loss
+            loss = loss_func(batch_output_dict, batch_target_dict)
+            
 
-        # Backward
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # Backward (to update model)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+    train_time = train_bgn_time - time.time()
+    logging.info('Train time: {:.3f} s'
+                ''.format(train_time))
+    # Save model 
+    if epoch % 5 == 0 and epoch > 0:
+        checkpoint = {
+            'epoch': epoch, 
+            'model': model.module.state_dict()} # checkpoint dict
 
-        # Stop learning
-        if iteration == stop_iteration:
-            break 
+        checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
+                    
+        torch.save(checkpoint, checkpoint_path)
+        logging.info('Model saved to {}'.format(checkpoint_path))
 
-        iteration += 1
+    print(epoch, loss.item())
         
 
 if __name__ == '__main__':
@@ -242,8 +201,9 @@ if __name__ == '__main__':
     parser_train.add_argument('--augmentation', type=str, choices=['none', 'mixup'], required=True)
     parser_train.add_argument('--learning_rate', type=float, required=True)
     parser_train.add_argument('--batch_size', type=int, required=True)
-    parser_train.add_argument('--resume_iteration', type=int)
-    parser_train.add_argument('--stop_iteration', type=int, required=True)
+    parser_train.add_argument("--max_epoch", type = int, required = True)
+    # parser_train.add_argument('--resume_iteration', type=int)
+    # parser_train.add_argument('--stop_iteration', type=int, required=True)
     parser_train.add_argument('--cuda', action='store_true', default=False)
 
     # Parse arguments

@@ -10,6 +10,7 @@ import logging
 import pandas as pd
 import torch
 import os
+import wave
 import config
 from utilities import int16_to_float32
 
@@ -36,12 +37,27 @@ class GtzanDataset(object):
         audio_clip_id = self.features["ID"].iloc[idx]
         audio_name = audio_clip_id + ".wav"
         audio_path = os.path.join(folder, audio_name)
+        # find a method to take in audio path
+        # Read file to get buffer                                                                                               
+        ifile = wave.open(audio_path)
+        samples = ifile.getnframes()
+        audio = ifile.readframes(samples)
+
+        # Convert buffer to float32 using NumPy                                                                                 
+        audio_as_np_int16 = np.frombuffer(audio, dtype=np.int16)
+        audio_as_np_float32 = audio_as_np_int16.astype(np.float32)
+
+        # Normalise float32 array so that values are between -1.0 and +1.0                                                      
+        max_int16 = 2**15
+        audio_normalised = torch.tensor(audio_as_np_float32 / max_int16)
 
         # get label and convert to tensor
         label = self.labels.iloc[idx]
         label_tensor = torch.tensor(label)
         # should i return a dictionary or just the path and label
-        return {"audio_name": audio_path, "target": label_tensor}
+        return {"audio_name": audio_normalised, "target": label_tensor}
+    
+
         """Load waveform and target of an audio clip.
         
         Args:

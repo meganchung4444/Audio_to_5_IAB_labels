@@ -22,15 +22,18 @@ class Evaluator(object):
         # Forward
         output_dict = forward(
             model=self.model, 
-            generator=data_loader, 
+            generator=data_loader, # will be validation_loader
             return_target=True)
 
+        # predict classes
         clipwise_output = output_dict['clipwise_output']    # (audios_num, classes_num)
+        # label from dataset
         target = output_dict['target']    # (audios_num, classes_num)
 
         cm = metrics.confusion_matrix(np.argmax(target, axis=-1), np.argmax(clipwise_output, axis=-1), labels=None)
         accuracy = calculate_accuracy(target, clipwise_output)
-
+        # (y_true arr, y_label arr)
+        f1 = metrics.f1_score(target, clipwise_output, average = "weighted")
         statistics = {'accuracy': accuracy}
 
         return statistics
