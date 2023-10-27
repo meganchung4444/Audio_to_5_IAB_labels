@@ -165,7 +165,7 @@ class Transfer_Cnn14(nn.Module):
         """Classifier for a new task using pretrained Cnn14 as a sub module.
         """
         super(Transfer_Cnn14, self).__init__()
-        audioset_classes_num = 527
+        audioset_classes_num = 5 # modify number of classes to 5
         
         self.base = Cnn14(sample_rate, window_size, hop_size, mel_bins, fmin, 
             fmax, audioset_classes_num)
@@ -185,7 +185,7 @@ class Transfer_Cnn14(nn.Module):
 
     def load_from_pretrain(self, pretrained_checkpoint_path):
         checkpoint = torch.load(pretrained_checkpoint_path)
-        self.base.load_state_dict(checkpoint['model'])
+        self.base.load_state_dict(checkpoint['model'], strict = True) # show TA errors
 
     def forward(self, input, mixup_lambda=None):
         """Input: (batch_size, data_length)

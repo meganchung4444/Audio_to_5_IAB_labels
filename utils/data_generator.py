@@ -7,49 +7,60 @@ import os
 import glob
 import matplotlib.pyplot as plt
 import logging
-
+import pandas as pd
+import torch
+import os
+import wave
 import config
-from utilities import int16_to_float32
+# from utilities import int16_to_float32
 
 
 class GtzanDataset(object):
-    def __init__(self):
+    def __init__(self, dataset_file):
         """This class takes the meta of an audio clip as input, and return 
         the waveform and target of the audio clip. This class is used by DataLoader. 
         Args:
           clip_samples: int
           classes_num: int
         """
-        pass
-    
-    def __getitem__(self, meta):
-        """Load waveform and target of an audio clip.
+        self.dataframe = pd.read_csv(dataset_file, header = 0)
+        # self.dataframe.to_hdf("dataset.h5", key = "data", format = "table")
+        self.label_col_name = "IAB Vector"
+        self.labels = self.dataframe[self.label_col_name]
+        self.features = self.dataframe.drop(columns = [self.label_col_name])
         
-        Args:
-          meta: {
-            'audio_name': str, 
-            'hdf5_path': str, 
-            'index_in_hdf5': int}
-        Returns: 
-          data_dict: {
-            'audio_name': str, 
-            'waveform': (clip_samples,), 
-            'target': (classes_num,)}
-        """
-        hdf5_path = meta['hdf5_path']
-        index_in_hdf5 = meta['index_in_hdf5']
+    
+    def __getitem__(self, idx):
+        # get audio clip path
+        root_path = '/content/drive/My Drive'
+        folder = os.path.join(root_path, "GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED FILES/AllAudioClips")
+        audio_clip_id = self.features["ID"].iloc[idx]
+        audio_name = audio_clip_id 
+        audio_path = os.path.join(folder, audio_name)
+        # find a method to take in audio path
+        # Read file to get buffer                                                                                               
+        ifile = wave.open(audio_path)
+        samples = ifile.getnframes()
+        audio = ifile.readframes(samples)
 
-        with h5py.File(hdf5_path, 'r') as hf:
-            audio_name = hf['audio_name'][index_in_hdf5].decode()
-            waveform = int16_to_float32(hf['waveform'][index_in_hdf5])
-            target = hf['target'][index_in_hdf5].astype(np.float32)
+        # Convert buffer to float32 using NumPy                                                                                 
+        audio_as_np_int16 = np.frombuffer(audio, dtype=np.int16)
+        audio_as_np_float32 = audio_as_np_int16.astype(np.float32)
 
-        data_dict = {
-            'audio_name': audio_name, 'waveform': waveform, 'target': target}
-            
-        return data_dict
+        # Normalise float32 array so that values are between -1.0 and +1.0                                                      
+        max_int16 = 2**15
+        audio_normalised = torch.tensor(audio_as_np_float32 / max_int16)
 
-
+        # get label and convert to tensor
+        label = self.labels.iloc[idx]
+        label = label.strip('[]')
+        label = [int(val) for val in label if val != ',' and val != ' ']
+        label_tensor = torch.tensor(label)
+        return {"audio": audio_normalised, "target": label_tensor}
+        
+    def __len__(self):
+        return len(self.dataframe)
+    
 class Base(object):
     def __init__(self, indexes_hdf5_path, batch_size, random_seed):
         """Base class of train sampler.
@@ -91,7 +102,7 @@ class TrainSampler(object):
         # super(TrainSampler, self).__init__(indexes_hdf5_path, batch_size, 
             # random_seed)
 
-        self.hdf5_path = hdf5_path
+        self.hdf5_path = hdf5_path 
         self.batch_size = batch_size
         self.random_state = np.random.RandomState(random_seed)
 
