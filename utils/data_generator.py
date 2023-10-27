@@ -12,7 +12,7 @@ import torch
 import os
 import wave
 import config
-from utilities import int16_to_float32
+# from utilities import int16_to_float32
 
 
 class GtzanDataset(object):
@@ -24,7 +24,6 @@ class GtzanDataset(object):
           classes_num: int
         """
         self.dataframe = pd.read_csv(dataset_file, skiprows = 1)
-        # ask if should just do hdf5
         # self.dataframe.to_hdf("dataset.h5", key = "data", format = "table")
         self.label_col_name = "IAB Vector"
         self.labels = self.dataframe[self.label_col_name]
@@ -54,8 +53,7 @@ class GtzanDataset(object):
         # get label and convert to tensor
         label = self.labels.iloc[idx]
         label_tensor = torch.tensor(label)
-        # should i return a dictionary or just the path and label
-        return {"audio_name": audio_normalised, "target": label_tensor}
+        return {"audio": audio_normalised, "target": label_tensor}
     
 
         """Load waveform and target of an audio clip.

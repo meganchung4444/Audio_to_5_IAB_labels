@@ -122,15 +122,11 @@ def train(args):
             logging.info('------------------------------------')
             logging.info('Iteration: {}'.format(epoch))
 
-            
-            # changed kaifeng's code
             val_begin_time = time.time()
 
             statistics = evaluator.evaluate(validate_loader)
             logging.info('Validate accuracy: {:.3f}'.format(statistics['accuracy']))
 
-            # statistics_container.append(iteration, statistics, 'validate')
-            # statistics_container.dump()
             # train_time = val_begin_time - train_bgn_time
             validate_time = time.time() - val_begin_time
             logging.info(
@@ -146,7 +142,8 @@ def train(args):
         for batch_data_dict in train_loader:
             
             # Move data to GPU
-            for key in batch_data_dict.keys():
+            # batch_data_dict: {"audio": audio_normalised, "target": label_tensor}
+            for key in batch_data_dict.keys(): 
                 batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
                 
             # Train
@@ -154,7 +151,7 @@ def train(args):
 
             # inference for training data
             # target that model predicted
-            batch_output_dict = model(batch_data_dict['waveform'], None)
+            batch_output_dict = model(batch_data_dict['audio'], None)
             """{'clipwise_output': (batch_size, classes_num), ...}"""
             # target: label
             batch_target_dict = {'target': batch_data_dict['target']}
@@ -163,11 +160,11 @@ def train(args):
             # loss
             loss = loss_func(batch_output_dict, batch_target_dict)
             
-
             # Backward (to update model)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            
     train_time = train_bgn_time - time.time()
     logging.info('Train time: {:.3f} s'
                 ''.format(train_time))
