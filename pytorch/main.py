@@ -25,7 +25,8 @@ from evaluate import Evaluator
 def train(args):
 
     # Arugments & parameters
-    dataset_dir = args.dataset_dir
+    training_dataset_dir = args.training_dataset_dir
+    val_dataset_dir = args.val_dataset_dir
     workspace = args.workspace
     holdout_fold = args.holdout_fold
     model_type = args.model_type
@@ -88,14 +89,15 @@ def train(args):
     print('GPU number: {}'.format(torch.cuda.device_count()))
     model = torch.nn.DataParallel(model)
 
-    dataset = GtzanDataset(dataset_dir)
+    training_dataset = GtzanDataset(training_dataset_dir)
+    validation_dataset = GtzanDataset(val_dataset_dir)
     
     # Data loader
-    train_loader = torch.utils.data.DataLoader(dataset=dataset, 
+    train_loader = torch.utils.data.DataLoader(dataset=training_dataset, 
         batch_size=32, shuffle = True, 
         num_workers=num_workers, pin_memory=True)
 
-    validate_loader = torch.utils.data.DataLoader(dataset=dataset, 
+    validate_loader = torch.utils.data.DataLoader(dataset=validation_dataset, 
         batch_size=1, shuffle = False, 
         num_workers=num_workers, pin_memory=True)
 
@@ -109,13 +111,10 @@ def train(args):
     # Evaluator
     evaluator = Evaluator(model=model)
     
-    # train_bgn_time = time.time()
-    
-    epoch_max = 400
     # iteration means updating the value once
     # for every epoch, model will trained num of training samples/batch size
     full_training_start = time.time()
-    for epoch in range(epoch_max):
+    for epoch in range(max_epoch):
         # Evaluate/validate for every 5 epoch
         if epoch % 5 == 0 and epoch > 0:
             model.eval()
@@ -190,7 +189,8 @@ if __name__ == '__main__':
 
     # Train
     parser_train = subparsers.add_parser('train')
-    parser_train.add_argument('--dataset_dir', type=str, required=True, help='Directory of dataset.')
+    parser_train.add_argument('--training_dataset_dir', type=str, required=True, help='Directory of training dataset.')
+    parser_train.add_argument('--val_dataset_dir', type=str, required=True, help='Directory of validation dataset.')
     parser_train.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')
     parser_train.add_argument('--holdout_fold', type=str, choices=['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], required=True)
     parser_train.add_argument('--model_type', type=str, required=True)
