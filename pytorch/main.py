@@ -114,7 +114,7 @@ def train(args):
     epoch_max = 400
     # iteration means updating the value once
     # for every epoch, model will trained num of training samples/batch size
-
+    full_training_start = time.time()
     for epoch in range(epoch_max):
         # Evaluate/validate for every 5 epoch
         if epoch % 5 == 0 and epoch > 0:
@@ -165,22 +165,24 @@ def train(args):
             loss.backward()
             optimizer.step()
             
-    train_time = train_bgn_time - time.time()
+            train_time = train_bgn_time - time.time()
+            logging.info('Train time (for this epoch): {:.3f} s'
+                        ''.format(train_time))
+            # Save model 
+            if epoch % 5 == 0 and epoch > 0:
+                checkpoint = {
+                    'epoch': epoch, 
+                    'model': model.module.state_dict()} # checkpoint dict
+
+                checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
+                            
+                torch.save(checkpoint, checkpoint_path)
+                logging.info('Model saved to {}'.format(checkpoint_path))
+
+            print(epoch, loss.item())
+    total_training_time = full_training_start - time.time()
     logging.info('Train time: {:.3f} s'
-                ''.format(train_time))
-    # Save model 
-    if epoch % 5 == 0 and epoch > 0:
-        checkpoint = {
-            'epoch': epoch, 
-            'model': model.module.state_dict()} # checkpoint dict
-
-        checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
-                    
-        torch.save(checkpoint, checkpoint_path)
-        logging.info('Model saved to {}'.format(checkpoint_path))
-
-    print(epoch, loss.item())
-        
+                        ''.format(total_training_time)) 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
