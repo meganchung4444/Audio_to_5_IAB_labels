@@ -23,7 +23,7 @@ class GtzanDataset(object):
           clip_samples: int
           classes_num: int
         """
-        self.dataframe = pd.read_csv(dataset_file, skiprows = 1)
+        self.dataframe = pd.read_csv(dataset_file, header = 0)
         # self.dataframe.to_hdf("dataset.h5", key = "data", format = "table")
         self.label_col_name = "IAB Vector"
         self.labels = self.dataframe[self.label_col_name]
