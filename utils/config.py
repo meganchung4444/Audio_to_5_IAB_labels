@@ -19,4 +19,4 @@ labels = ['blues', 'classical', 'country', 'disco', 'hiphop', 'jazz', 'metal',
     
 lb_to_idx = {lb: idx for idx, lb in enumerate(labels)}
 idx_to_lb = {idx: lb for idx, lb in enumerate(labels)}
-classes_num = len(labels)
+classes_num = 5 # changed to 5
