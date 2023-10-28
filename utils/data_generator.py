@@ -51,6 +51,11 @@ class GtzanDataset(object):
         max_int16 = 2**15
         audio_normalised = torch.tensor(audio_as_np_float32 / max_int16)
 
+        if audio_normalised.shape[0] < 320000:
+          pad = audio_normalised[-1].repeat(320000 - audio_normalised.shape[0])
+          combined_audio_normalised = torch.cat((audio_normalised, pad))
+          audio_normalised = combined_audio_normalised
+
         # get label and convert to tensor
         label = self.labels.iloc[idx]
         label = label.strip('[]')
