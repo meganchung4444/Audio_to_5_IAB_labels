@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # DATASET_DIR="/home/tiger/datasets/GTZAN/dataset_root"
-TRAINING_DATASET_DIR="/content/drive/MyDrive/GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED FILES/Dataset/GumGum_Training_Set.csv"
-VAL_DATASET_DIR="/content/drive/MyDrive/GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED FILES/Dataset/GumGum_Validation_Set.csv"
+TRAINING_DATASET_DIR="/content/drive/MyDrive/GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED_FILES/Dataset/GumGum_Training_Set.csv"
+VAL_DATASET_DIR="/content/drive/MyDrive/GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED_FILES/Dataset/GumGum_Validation_Set.csv"
 WORKSPACE="/content" 
 
 # python3 utils/features.py pack_audio_files_to_hdf5 --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --mini_data
