@@ -33,7 +33,7 @@ class GtzanDataset(object):
     def __getitem__(self, idx):
         # get audio clip path
         root_path = '/content/drive/My Drive'
-        folder = os.path.join(root_path, "GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED FILES/AllAudioClips")
+        folder = os.path.join(root_path, "GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED_FILES/AllAudioClips")
         audio_clip_id = self.features["ID"].iloc[idx]
         audio_name = audio_clip_id 
         audio_path = os.path.join(folder, audio_name)
