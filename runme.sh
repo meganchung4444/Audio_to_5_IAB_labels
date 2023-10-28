@@ -10,7 +10,7 @@ WORKSPACE="/content"
 PRETRAINED_CHECKPOINT_PATH="/content/Cnn14_mAP=0.431.pth"
 # MODEL_TYPE="Transfer_Cnn13"
 # CUDA_VISIBLE_DEVICES=3 python3 pytorch/main.py train --training_dataset_dir=$TRAINING_DATASET_DIR --val_dataset_dir=$VAL_DATASET_DIR --workspace=$WORKSPACE --holdout_fold=1 --model_type="Transfer_Cnn14" --pretrained_checkpoint_path=$PRETRAINED_CHECKPOINT_PATH --loss_type=clip_nll --augmentation='none' --learning_rate=1e-4 --batch_size=32 --max_epoch=400 --cuda
-!CUDA_VISIBLE_DEVICES=3 python3 /content/panns_transfer_to_gtzan/pytorch/main.py train --training_dataset_dir=$TRAINING_DATASET_DIR --val_dataset_dir=$VAL_DATASET_DIR --workspace=$WORKSPACE --holdout_fold=1 --model_type="Transfer_Cnn14" --pretrained_checkpoint_path=$PRETRAINED_CHECKPOINT_PATH --loss_type=clip_nll --augmentation='none' --learning_rate=1e-4 --batch_size=32 --max_epoch=400 --cuda
+!CUDA_VISIBLE_DEVICES=0 python3 /content/panns_transfer_to_gtzan/pytorch/main.py train --training_dataset_dir=$TRAINING_DATASET_DIR --val_dataset_dir=$VAL_DATASET_DIR --workspace=$WORKSPACE --holdout_fold=1 --model_type="Transfer_Cnn14" --pretrained_checkpoint_path=$PRETRAINED_CHECKPOINT_PATH --loss_type=clip_nll --augmentation='none' --learning_rate=1e-4 --batch_size=32 --max_epoch=400 --cuda
 
 
 #####
