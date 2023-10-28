@@ -172,7 +172,7 @@ def train(args):
             if epoch % 5 == 0 and epoch > 0:
                 checkpoint = {
                     'epoch': epoch, 
-                    'model': model.module.state_dict()} # checkpoint dict
+                    'model': model } # checkpoint dict (before: model.module.state_dict())
 
                 checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
                             
