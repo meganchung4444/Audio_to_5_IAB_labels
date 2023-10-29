@@ -59,19 +59,19 @@ def forward(model, generator, return_input=False,
     # Forward data to a model in mini-batches
     for n, batch_data_dict in enumerate(generator):
         print(n)
-        batch_waveform = move_data_to_device(batch_data_dict['waveform'], device)
+        batch_waveform = move_data_to_device(batch_data_dict['audio'], device)
         
         with torch.no_grad():
             model.eval()
             batch_output = model(batch_waveform)
 
-        append_to_dict(output_dict, 'audio_name', batch_data_dict['audio_name'])
+        append_to_dict(output_dict, 'audio', batch_data_dict['audio'])
 
         append_to_dict(output_dict, 'clipwise_output', 
             batch_output['clipwise_output'].data.cpu().numpy())
             
         if return_input:
-            append_to_dict(output_dict, 'waveform', batch_data_dict['waveform'])
+            append_to_dict(output_dict, 'audio', batch_data_dict['audio'])
             
         if return_target:
             if 'target' in batch_data_dict.keys():
