@@ -166,8 +166,8 @@ def train(args):
             optimizer.step()
             
             train_time = train_bgn_time - time.time()
-            logging.info('Train time (for this epoch): {:.3f} s'
-                        ''.format(train_time))
+            logging.info('Train time (for epoch #{}): {:.3f} s'
+                        ''.format(epoch, train_time))
             # Save model 
             if epoch % 5 == 0 and epoch > 0:
                 checkpoint = {
@@ -179,7 +179,7 @@ def train(args):
                 torch.save(checkpoint, checkpoint_path)
                 logging.info('Model saved to {}'.format(checkpoint_path))
 
-            print(epoch, loss.item())
+            print(f"For epoch #{epoch}, loss = {loss.item()}")
     total_training_time = time.time() - full_training_start 
     logging.info('Train time: {:.3f} s'
                         ''.format(total_training_time)) 
