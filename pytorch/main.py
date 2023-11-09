@@ -116,6 +116,7 @@ def train(args):
     # for every epoch, model will trained num of training samples/batch size
     full_training_start = time.time()
     for epoch in range(max_epoch):
+        print(f"Epoch #{epoch}")
         # Evaluate/validate for every 5 epoch
         if epoch % 5 == 0 and epoch > 0:
             model.eval()
@@ -179,7 +180,8 @@ def train(args):
                 torch.save(checkpoint, checkpoint_path)
                 logging.info('Model saved to {}'.format(checkpoint_path))
 
-            print(f"For epoch #{epoch}, loss = {loss.item()}")
+            # print(f"For epoch #{epoch}, loss = {loss.item()}")
+            print(f"Loss: {loss.item()}")
     total_training_time = time.time() - full_training_start 
     logging.info('Train time: {:.3f} s'
                         ''.format(total_training_time)) 
