@@ -125,7 +125,7 @@ def train(args):
             val_begin_time = time.time()
 
             statistics = evaluator.evaluate(validate_loader)
-            logging.info('Validate accuracy: {:.3f}'.format(statistics['accuracy']))
+            logging.info('Validate accuracy: {:.3f}'.format(statistics['f1']))
 
             # train_time = val_begin_time - train_bgn_time
             validate_time = time.time() - val_begin_time
