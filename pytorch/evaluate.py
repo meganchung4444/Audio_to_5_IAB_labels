@@ -31,6 +31,9 @@ class Evaluator(object):
         clipwise_output = output_dict['clipwise_output']    # (audios_num, classes_num)
         # label from dataset
         target = output_dict['target']    # (audios_num, classes_num)
+        print("clipwise_output:", clipwise_output)
+        print("target:", target)
+        print()
 
         cm = metrics.confusion_matrix(np.argmax(target, axis=-1), np.argmax(clipwise_output, axis=-1), labels=None)
         self.plot_cm(np.argmax(target, axis = -1), np.argmax(clipwise_output, axis=-1))
