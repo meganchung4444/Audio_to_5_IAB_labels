@@ -125,7 +125,7 @@ def train(args):
             val_begin_time = time.time()
 
             statistics = evaluator.evaluate(validate_loader)
-            logging.info('Validate accuracy: {:.3f}'.format(statistics['accuracy']))
+            logging.info('Validate accuracy: {:.3f}'.format(statistics['f1']))
 
             # train_time = val_begin_time - train_bgn_time
             validate_time = time.time() - val_begin_time
@@ -166,8 +166,8 @@ def train(args):
             optimizer.step()
             
             train_time = train_bgn_time - time.time()
-            logging.info('Train time (for this epoch): {:.3f} s'
-                        ''.format(train_time))
+            logging.info('Train time (for epoch #{}): {:.3f} s'
+                        ''.format(epoch, train_time))
             # Save model 
             if epoch % 5 == 0 and epoch > 0:
                 checkpoint = {
@@ -179,8 +179,8 @@ def train(args):
                 torch.save(checkpoint, checkpoint_path)
                 logging.info('Model saved to {}'.format(checkpoint_path))
 
-            print(epoch, loss.item())
-    total_training_time = full_training_start - time.time()
+            print(f"For epoch #{epoch}, loss = {loss.item()}")
+    total_training_time = time.time() - full_training_start 
     logging.info('Train time: {:.3f} s'
                         ''.format(total_training_time)) 
 

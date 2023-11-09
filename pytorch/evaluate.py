@@ -1,6 +1,8 @@
 import numpy as np
 import logging
 from sklearn import metrics
+from sklearn.metrics import ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 from pytorch_utils import forward
 from utilities import get_filename
@@ -31,9 +33,14 @@ class Evaluator(object):
         target = output_dict['target']    # (audios_num, classes_num)
 
         cm = metrics.confusion_matrix(np.argmax(target, axis=-1), np.argmax(clipwise_output, axis=-1), labels=None)
-        accuracy = calculate_accuracy(target, clipwise_output)
+        self.plot_cm(np.argmax(target, axis = -1), np.argmax(clipwise_output, axis=-1))
+        # accuracy = calculate_accuracy(target, clipwise_output)
         # (y_true arr, y_label arr)
         f1 = metrics.f1_score(target, clipwise_output, average = "weighted")
-        statistics = {'accuracy': accuracy}
+        statistics = {'f1': f1}
 
         return statistics
+    def plot_cm(self, dataset_label, model_prediction):
+        cm = metrics.confusion_matrix(dataset_label, model_prediction)
+        labels = np.unique(dataset_label)
+        cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels).plot(cmap = "Blues", values_format = "d")
