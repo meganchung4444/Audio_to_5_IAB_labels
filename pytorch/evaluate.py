@@ -44,6 +44,9 @@ class Evaluator(object):
 
         return statistics
     def plot_cm(self, dataset_label, model_prediction):
+        dataset_label = np.argmax(dataset_label, axis=1)
+        model_prediction = np.argmax(model_prediction, axis=1)
+
         cm = metrics.confusion_matrix(dataset_label, model_prediction)
         labels = np.unique(dataset_label)
         cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels).plot(cmap = "Blues", values_format = "d")
