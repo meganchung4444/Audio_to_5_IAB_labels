@@ -165,7 +165,7 @@ def train(args):
             loss.backward()
             optimizer.step()
             
-            train_time = train_bgn_time - time.time()
+            train_time = time.time() - train_bgn_time 
             logging.info('Train time (for epoch #{}): {:.3f} s'
                         ''.format(epoch, train_time))
             # Save model 
