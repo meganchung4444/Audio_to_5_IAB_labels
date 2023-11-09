@@ -180,7 +180,7 @@ def train(args):
                 logging.info('Model saved to {}'.format(checkpoint_path))
 
             print(epoch, loss.item())
-    total_training_time = full_training_start - time.time()
+    total_training_time = time.time() - full_training_start 
     logging.info('Train time: {:.3f} s'
                         ''.format(total_training_time)) 
 
