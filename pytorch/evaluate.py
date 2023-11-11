@@ -72,8 +72,9 @@ class Evaluator(object):
       plt.subplots_adjust(wspace=0.30, hspace=0.1)
       f.colorbar(disp.im_, ax=axes)
 
-      filename = f"{self.plot_counter}.png"
+      filename = f"epoch_{self.png_counter}.png"
       filepath = os.path.join("/content/figures/", filename) 
+      png_counter += 5
       plt.savefig(filepath)
       
 
