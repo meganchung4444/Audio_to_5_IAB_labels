@@ -115,9 +115,11 @@ def train(args):
     # iteration means updating the value once
     # for every epoch, model will trained num of training samples/batch size
     full_training_start = time.time()
+    val_list = []
     for epoch in range(max_epoch):
         print(f"Epoch #{epoch}")
         # Evaluate/validate for every 5 epoch
+        epoch = 5
         if epoch % 5 == 0 and epoch > 0:
             model.eval()
             logging.info('------------------------------------')
@@ -127,6 +129,7 @@ def train(args):
 
             statistics = evaluator.evaluate(validate_loader)
             logging.info('Validate accuracy: {:.3f}'.format(statistics['f1']))
+            val_list.append(statistics["f1"])
 
             # train_time = val_begin_time - train_bgn_time
             validate_time = time.time() - val_begin_time
@@ -173,7 +176,7 @@ def train(args):
             if epoch % 5 == 0 and epoch > 0:
                 checkpoint = {
                     'epoch': epoch, 
-                    'model': model } # checkpoint dict (before: model.module.state_dict())
+                    'model': model.module.state_dict() } # checkpoint dict (before: model.module.state_dict())
 
                 checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
                             
@@ -185,6 +188,11 @@ def train(args):
     total_training_time = time.time() - full_training_start 
     logging.info('Train time: {:.3f} s'
                         ''.format(total_training_time)) 
+
+    best_checkpoint = np.argmax(np.array(val_list)) # get the index of best checkpoint
+    best_checkpoint_idx = best_checkpoint * 5
+    # find the checkpoint path
+    # testing loop 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
