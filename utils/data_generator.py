@@ -49,12 +49,12 @@ class GtzanDataset(object):
 
         # Normalise float32 array so that values are between -1.0 and +1.0                                                      
         max_int16 = 2**15
-        audio_normalised = torch.tensor(audio_as_np_float32 / max_int16)
+        audio_normalized = torch.tensor(audio_as_np_float32 / max_int16)
 
-        if audio_normalised.shape[0] < 320000:
-          pad = audio_normalised[-1].repeat(320000 - audio_normalised.shape[0])
-          combined_audio_normalised = torch.cat((audio_normalised, pad))
-          audio_normalised = combined_audio_normalised
+        if audio_normalized.shape[0] < 320000:
+          pad = audio_normalized[-1].repeat(320000 - audio_normalized.shape[0])
+          combined_audio_normalized = torch.cat((audio_normalized, pad))
+          audio_normalized = combined_audio_normalized
 
         # get label and convert to tensor
         label = self.labels.iloc[idx]
