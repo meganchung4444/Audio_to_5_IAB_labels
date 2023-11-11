@@ -61,7 +61,7 @@ class GtzanDataset(object):
         label = label.strip('[]')
         label = [int(val) for val in label if val != ',' and val != ' ']
         label_tensor = torch.tensor(label)
-        return {"audio": audio_normalised, "target": label_tensor}
+        return {"audio": audio_normalized, "target": label_tensor}
         
     def __len__(self):
         return len(self.dataframe)
