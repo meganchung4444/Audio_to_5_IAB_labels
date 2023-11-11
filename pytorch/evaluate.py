@@ -74,7 +74,7 @@ class Evaluator(object):
 
       filename = f"epoch_{self.png_counter}.png"
       filepath = os.path.join("/content/figures/", filename) 
-      png_counter += 5
+      self.png_counter += 5
       plt.savefig(filepath)
       
 
