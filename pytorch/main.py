@@ -117,6 +117,7 @@ def train(args):
     full_training_start = time.time()
     val_list = []
     for epoch in range(max_epoch):
+        print()
         print(f"Epoch #{epoch}")
         # Evaluate/validate for every 5 epoch
         if epoch % 5 == 0 and epoch > 0:
@@ -127,7 +128,7 @@ def train(args):
             val_begin_time = time.time()
 
             statistics = evaluator.evaluate(validate_loader)
-            logging.info('Validate accuracy: {:.3f}'.format(statistics['f1']))
+            logging.info('Validation Set F1 Score: {:.3f}'.format(statistics['f1']))
             val_list.append(statistics["f1"])
 
             # train_time = val_begin_time - train_bgn_time
@@ -190,6 +191,7 @@ def train(args):
 
     best_checkpoint = np.argmax(np.array(val_list)) # get the index of best checkpoint
     best_checkpoint_idx = best_checkpoint * 5
+    print("best checkpoint was at epoch:", best_checkpoint_idx)
     # find the checkpoint path
     # testing loop 
 
