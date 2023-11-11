@@ -119,7 +119,6 @@ def train(args):
     for epoch in range(max_epoch):
         print(f"Epoch #{epoch}")
         # Evaluate/validate for every 5 epoch
-        epoch = 5
         if epoch % 5 == 0 and epoch > 0:
             model.eval()
             logging.info('------------------------------------')
