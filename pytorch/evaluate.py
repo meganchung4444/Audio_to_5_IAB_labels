@@ -1,6 +1,7 @@
 import numpy as np
 import logging
 from sklearn import metrics
+from sklearn.metrics import confusion_matrix
 from sklearn.metrics import ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
@@ -28,25 +29,45 @@ class Evaluator(object):
             return_target=True)
 
         # predict classes
-        clipwise_output = output_dict['clipwise_output']    # (audios_num, classes_num)
+        clipwise_output = output_dict['clipwise_output']   # (audios_num, classes_num)
         # label from dataset
         target = output_dict['target']    # (audios_num, classes_num)
-        print("clipwise_output:", clipwise_output)
-        print("target:", target)
-        print()
 
-        cm = metrics.confusion_matrix(np.argmax(target, axis=-1), np.argmax(clipwise_output, axis=-1), labels=None)
-        self.plot_cm(np.argmax(target, axis = -1), np.argmax(clipwise_output, axis=-1))
         # accuracy = calculate_accuracy(target, clipwise_output)
-        # (y_true arr, y_label arr)
-        f1 = metrics.f1_score(target, clipwise_output, average = "weighted")
+
+        # convert the predicted labels into probabilities
+        prob_clipwise_output = np.exp(clipwise_output)
+        threshold = 0.2
+        prob_clipwise_output[prob_clipwise_output > threshold] = 1
+        prob_clipwise_output[prob_clipwise_output <= threshold] = 0
+
+        f1 = metrics.f1_score(target, prob_clipwise_output, average = "weighted")
+        self.plot_cm(target, prob_clipwise_output)
+        
         statistics = {'f1': f1}
 
         return statistics
-    def plot_cm(self, dataset_label, model_prediction):
-        dataset_label = np.argmax(dataset_label, axis=1)
-        model_prediction = np.argmax(model_prediction, axis=1)
 
-        cm = metrics.confusion_matrix(dataset_label, model_prediction)
-        labels = np.unique(dataset_label)
-        cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels).plot(cmap = "Blues", values_format = "d")
+    def plot_cm(self, dataset_label, model_prediction):
+       
+      num_classes = 5
+      f, axes = plt.subplots(1, num_classes, figsize=(8, 5))
+      axes = axes.ravel()
+      for i in range(num_classes):
+          disp = ConfusionMatrixDisplay(confusion_matrix(dataset_label[:, i],
+                                                        model_prediction[:, i]),
+                                        display_labels=[0, i])
+          disp.plot(ax=axes[i], values_format='.4g')
+          disp.ax_.set_title(f'class {i}')
+          if i < 10:
+              disp.ax_.set_xlabel('')
+          if i % 5 != 0:
+              disp.ax_.set_ylabel('')
+          disp.im_.colorbar.remove()
+
+      plt.subplots_adjust(wspace=0.30, hspace=0.1)
+      f.colorbar(disp.im_, ax=axes)
+      plt.savefig("/content/figures/fig.png")
+      
+
+      
