@@ -57,6 +57,8 @@ class Evaluator(object):
       f, axes = plt.subplots(1, num_classes, figsize=(8, 5))
       axes = axes.ravel()
       classes = ["Automotive", "Food & Drink", "Pets", "War & Conflicts", "Music"]
+      # Confusion Matrix Order:
+      # True Neg (Top-Left), False Pos (Top-Right), False Neg (Bottom-Left), True Pos (Bottom-Right)
       for i in range(num_classes):
           disp = ConfusionMatrixDisplay(confusion_matrix(dataset_label[:, i],
                                                         model_prediction[:, i]),
