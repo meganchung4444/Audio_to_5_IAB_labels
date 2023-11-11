@@ -62,14 +62,14 @@ class Evaluator(object):
                                                         model_prediction[:, i]),
                                         display_labels=[0, i])
           disp.plot(ax=axes[i], values_format='.4g')
-          disp.ax_.set_title(f'class {classes[i]}')
+          disp.ax_.set_title(f'{classes[i]}', fontsize = 8)
           if i < 10:
               disp.ax_.set_xlabel('')
           if i % 5 != 0:
               disp.ax_.set_ylabel('')
           disp.im_.colorbar.remove()
-
-      plt.subplots_adjust(wspace=0.30, hspace=0.1)
+      
+      plt.subplots_adjust(wspace=0.50, hspace=0.1)
       f.colorbar(disp.im_, ax=axes)
 
       filename = f"epoch_{self.png_counter}.png"
