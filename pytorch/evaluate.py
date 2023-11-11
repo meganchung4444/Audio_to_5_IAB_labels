@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from pytorch_utils import forward
 from utilities import get_filename
 import config
+import os
 
 
 def calculate_accuracy(y_true, y_score):
@@ -19,6 +20,7 @@ def calculate_accuracy(y_true, y_score):
 class Evaluator(object):
     def __init__(self, model):
         self.model = model
+        self.png_counter = 5
 
     def evaluate(self, data_loader):
 
@@ -51,14 +53,16 @@ class Evaluator(object):
     def plot_cm(self, dataset_label, model_prediction):
        
       num_classes = 5
+      
       f, axes = plt.subplots(1, num_classes, figsize=(8, 5))
       axes = axes.ravel()
+      classes = ["Automotive", "Food & Drink", "Pets", "War & Conflicts", "Music"]
       for i in range(num_classes):
           disp = ConfusionMatrixDisplay(confusion_matrix(dataset_label[:, i],
                                                         model_prediction[:, i]),
                                         display_labels=[0, i])
           disp.plot(ax=axes[i], values_format='.4g')
-          disp.ax_.set_title(f'class {i}')
+          disp.ax_.set_title(f'class {classes[i]}')
           if i < 10:
               disp.ax_.set_xlabel('')
           if i % 5 != 0:
@@ -67,7 +71,10 @@ class Evaluator(object):
 
       plt.subplots_adjust(wspace=0.30, hspace=0.1)
       f.colorbar(disp.im_, ax=axes)
-      plt.savefig("/content/figures/fig.png")
+
+      filename = f"{self.plot_counter}.png"
+      filepath = os.path.join("/content/figures/", filename) 
+      plt.savefig(filepath)
       
 
       
