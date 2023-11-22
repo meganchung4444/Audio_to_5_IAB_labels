@@ -3,7 +3,8 @@ import torch.nn.functional as F
 
 
 def clip_nll(output_dict, target_dict):
-    loss = - torch.mean(target_dict['target'] * output_dict['clipwise_output'])
+    loss = F.binary_cross_entropy(torch.sigmoid(output_dict['clipwise_output']).to(torch.float32), target_dict['target'].to(torch.float32))
+    # loss = - torch.mean(target_dict['target'] * output_dict['clipwise_output'])
     return loss
 
 
