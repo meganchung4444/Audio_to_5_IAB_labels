@@ -193,7 +193,7 @@ class Transfer_Cnn14(nn.Module):
         output_dict = self.base(input, mixup_lambda)
         embedding = output_dict['embedding']
 
-        clipwise_output =  torch.log_softmax(self.fc_transfer(embedding), dim=-1)
+        clipwise_output =  self.fc_transfer(embedding)
         output_dict['clipwise_output'] = clipwise_output
  
         return output_dict
