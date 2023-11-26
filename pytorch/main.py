@@ -28,6 +28,7 @@ def train(args):
     # Arugments & parameters
     training_dataset_dir = args.training_dataset_dir
     val_dataset_dir = args.val_dataset_dir
+    test_dataset_dir = args.test_dataset_dir
     workspace = args.workspace
     holdout_fold = args.holdout_fold
     model_type = args.model_type
@@ -190,10 +191,33 @@ def train(args):
                         ''.format(total_training_time)) 
 
     best_checkpoint = np.argmax(np.array(val_list)) # get the index of best checkpoint
-    best_checkpoint_idx = best_checkpoint * 5
+    best_checkpoint_idx = (best_checkpoint +1) * 5
     print("best checkpoint was at epoch:", best_checkpoint_idx)
-    # find the checkpoint path
     # testing loop 
+    best_checkpoint_path = f"/content/checkpoints/main/holdout_fold=1/Transfer_Cnn14/pretrain=True/loss_type=clip_nll/augmentation=none/batch_size=32/freeze_base=False/{best_checkpoint_idx}_epochs.pth"
+    model_for_testing = Model(sample_rate, window_size, hop_size, mel_bins, fmin, fmax,
+        classes_num, freeze_base)
+
+    model_for_testing.load_state_dict(torch.load(best_checkpoint_path)['model']) # choose the best checkpoint and load it
+
+    test_dataset = GtzanDataset(test_dataset_dir)
+
+    test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+        batch_size=1, shuffle = False,
+        num_workers=num_workers, pin_memory=True) # ask if shuffle = True is okay?
+
+    testing_begin_time = time.time()
+    model_for_testing.eval()
+
+    statistics = evaluator.evaluate(test_loader)
+    logging.info('Testing accuracy: {:.3f}'.format(statistics['f1']))
+
+
+    testing_time = time.time() - testing_begin_time
+    logging.info(
+                'Teseting time: {:.3f} s'
+                ''.format(testing_time))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
@@ -203,6 +227,7 @@ if __name__ == '__main__':
     parser_train = subparsers.add_parser('train')
     parser_train.add_argument('--training_dataset_dir', type=str, required=True, help='Directory of training dataset.')
     parser_train.add_argument('--val_dataset_dir', type=str, required=True, help='Directory of validation dataset.')
+    parser_train.add_argument('--test_dataset_dir', type=str, required=True, help='Directory of testing dataset.')
     parser_train.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')
     parser_train.add_argument('--holdout_fold', type=str, choices=['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], required=True)
     parser_train.add_argument('--model_type', type=str, required=True)
