@@ -215,7 +215,7 @@ def train(args):
 
     testing_time = time.time() - testing_begin_time
     logging.info(
-                'Teseting time: {:.3f} s'
+                'Testing time: {:.3f} s'
                 ''.format(testing_time))
 
 
