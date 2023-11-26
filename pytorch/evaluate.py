@@ -74,6 +74,3 @@ class Evaluator(object):
       filepath = os.path.join("/content/figures/", filename) 
       
       plt.savefig(filepath)
-      
-
-      
