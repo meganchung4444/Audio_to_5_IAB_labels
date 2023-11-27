@@ -36,7 +36,7 @@ class Evaluator(object):
         # print("target dimension:", target.shape)
         # accuracy = calculate_accuracy(target, clipwise_output)
         # convert the predicted labels into probabilities
-        prob_clipwise_output = np.exp(clipwise_output) # might use sigmoid?
+        prob_clipwise_output = 1/(1 + np.exp(-clipwise_output))
         threshold = 0.5
         prob_clipwise_output[prob_clipwise_output > threshold] = 1
         prob_clipwise_output[prob_clipwise_output <= threshold] = 0
