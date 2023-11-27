@@ -195,16 +195,16 @@ def train(args):
     print("best checkpoint was at epoch:", best_checkpoint_idx)
     # testing loop 
     best_checkpoint_path = f"/content/checkpoints/main/holdout_fold=1/Transfer_Cnn14/pretrain=True/loss_type=clip_nll/augmentation=none/batch_size=32/freeze_base=False/{best_checkpoint_idx}_epochs.pth"
-    model_for_testing = Model(sample_rate, window_size, hop_size, mel_bins, fmin, fmax,
+    # model_for_testing = Model(sample_rate, window_size, hop_size, mel_bins, fmin, fmax,
         classes_num, freeze_base)
 
-    model_for_testing.load_state_dict(torch.load(best_checkpoint_path)['model']) # choose the best checkpoint and load it
+    model.load_state_dict(torch.load(best_checkpoint_path)['model']) # choose the best checkpoint and load it
 
     test_dataset = GtzanDataset(test_dataset_dir)
 
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
         batch_size=1, shuffle = False,
-        num_workers=num_workers, pin_memory=True) # ask if shuffle = True is okay?
+        num_workers=num_workers, pin_memory=True)
 
     testing_begin_time = time.time()
     model_for_testing.eval()
