@@ -1,6 +1,6 @@
 import numpy as np
 import logging
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, f1_score, roc_curve, roc_auc_score
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, f1_score, roc_curve, roc_auc_score, classification_report
 import matplotlib.pyplot as plt
 
 from pytorch_utils import forward
@@ -8,11 +8,6 @@ from utilities import get_filename
 import config
 import os
 
-
-def calculate_accuracy(y_true, y_score):
-    N = y_true.shape[0]
-    accuracy = np.sum(np.argmax(y_true, axis=-1) == np.argmax(y_score, axis=-1)) / N
-    return accuracy
 
 
 class Evaluator(object):
@@ -29,20 +24,20 @@ class Evaluator(object):
             generator=data_loader, 
             return_target=True)
 
-        # predict classes
+        # predicted classes
         clipwise_output = output_dict['clipwise_output']   # (audios_num, classes_num)
         # label from dataset
-        target = output_dict['target']    # (audios_num, classes_num)
-        # print("target dimension:", target.shape)
-        # accuracy = calculate_accuracy(target, clipwise_output)
-        # convert the predicted labels into probabilities
-        prob_clipwise_output = 1/(1 + np.exp(-clipwise_output))
+        target = output_dict['target'].astype(float)   # (audios_num, classes_num)
+        
+        sigmoid_clipwise_output = 1/(1 + np.exp(-clipwise_output))
         threshold = 0.5
-        prob_clipwise_output[prob_clipwise_output > threshold] = 1
-        prob_clipwise_output[prob_clipwise_output <= threshold] = 0
-
-        f1 = f1_score(target, prob_clipwise_output, average = "weighted")
-        statistics = {'f1': f1}
+        binary_model_predictions = (sigmoid_clipwise_output > threshold).astype(float)
+        
+        classes = ["Automotive", "Food & Drink", "Pets", "War & Conflicts", "Music"]
+        print(classification_report(target, binary_model_predictions, target_names = classes))
+        report = classification_report(target, binary_model_predictions, target_names=classes, output_dict = True, zero_division=0)
+        statistics = {'f1': report['macro avg']['f1-score'], "report": report}
+        self.plot_cm(target, binary_model_predictions, self.num_classes)
         self.png_counter += 5
 
         return statistics
