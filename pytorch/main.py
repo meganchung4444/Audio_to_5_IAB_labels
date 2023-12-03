@@ -17,7 +17,6 @@ from config import (sample_rate, classes_num, mel_bins, fmin, fmax, window_size,
 from losses import get_loss_func
 from pytorch_utils import move_data_to_device, do_mixup
 from utilities import (create_folder, get_filename, create_logging, StatisticsContainer, Mixup)
-# from data_generator import GtzanDataset, TrainSampler, EvaluateSampler, collate_fn
 from data_generator import GtzanDataset
 from models import Transfer_Cnn14
 from evaluate import Evaluator
@@ -25,7 +24,7 @@ from evaluate import Evaluator
 
 def train(args):
 
-    # Arugments & parameters
+    # Handling the arugments & parameters
     training_dataset_dir = args.training_dataset_dir
     val_dataset_dir = args.val_dataset_dir
     test_dataset_dir = args.test_dataset_dir
@@ -39,17 +38,14 @@ def train(args):
     learning_rate = args.learning_rate
     batch_size = args.batch_size
     max_epoch = args.max_epoch
-    # resume_iteration = args.resume_iteration
-    # stop_iteration = args.stop_iteration
     device = 'cuda' if (args.cuda and torch.cuda.is_available()) else 'cpu'
     filename = args.filename
-    num_workers = 2 # updated from 8
+    num_workers = 2 
 
     loss_func = get_loss_func(loss_type)
     pretrain = True if pretrained_checkpoint_path else False
-    
-    hdf5_path = os.path.join(workspace, 'features', 'waveform.h5')
 
+    # Creating folder for logging information
     checkpoints_dir = os.path.join(workspace, 'checkpoints', filename, 
         'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
         'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation),
@@ -113,56 +109,50 @@ def train(args):
     # Evaluator
     evaluator = Evaluator(model=model)
     
-    # iteration means updating the value once
-    # for every epoch, model will trained num of training samples/batch size
     full_training_start = time.time()
-    val_list = []
+    val_list = [] # list to check the best f1 score to determine the best checkpoint
+    # Training Loop (train a batch every epoch)
     for epoch in range(max_epoch):
         print()
-        print(f"Epoch #{epoch}")
-        # Evaluate/validate for every 5 epoch
+        # logging.info('EPOCH #{}'.format(epoch))
+        # logging.info('------------------------------------')
+        # Evaluation for every 5th epoch
         if epoch % 5 == 0 and epoch > 0:
             model.eval()
-            logging.info('------------------------------------')
-            logging.info('Iteration: {}'.format(epoch))
+            # logging.info('------------------------------------')
+            logging.info('Validation for Epoch #{}'.format(epoch))
 
             val_begin_time = time.time()
 
             statistics = evaluator.evaluate(validate_loader)
-            logging.info('Validation Set F1 Score: {:.3f}'.format(statistics['f1']))
+            logging.info(f"\t•Classification Report: {statistics['report']}")
+            # logging.info('Validation Set F1 Score: {:.3f}'.format(statistics['f1']))
             val_list.append(statistics["f1"])
 
-            # train_time = val_begin_time - train_bgn_time
             validate_time = time.time() - val_begin_time
             logging.info(
-                'Validate time: {:.3f} s'
+                '\t•Validate Time: {:.3f} s\n'
                 ''.format(validate_time))
-            # logging.info(
-            #     'Train time: {:.3f} s, validate time: {:.3f} s'
-            #     ''.format(train_time, validate_time))
 
-        # Train on mini batches
-        # 800 training samples, batch size 32, train_loader made 800/32 batches 
+        # Train on Mini Batches
+        batch_count = 0
         train_bgn_time = time.time()
         for batch_data_dict in train_loader:
             
             # Move data to GPU
-            # batch_data_dict: {"audio": audio_normalised, "target": label_tensor}
             for key in batch_data_dict.keys(): 
                 batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
                 
             # Train
             model.train()
 
-            # inference for training data
-            # target that model predicted
+            # Inference for training data
             batch_output_dict = model(batch_data_dict['audio'], None)
             """{'clipwise_output': (batch_size, classes_num), ...}"""
-            # target: label
             batch_target_dict = {'target': batch_data_dict['target']}
             """{'target': (batch_size, classes_num)}"""
 
-            # loss
+            # Loss
             loss = loss_func(batch_output_dict, batch_target_dict)
             
             # Backward (to update model)
@@ -171,51 +161,51 @@ def train(args):
             optimizer.step()
             
             train_time = time.time() - train_bgn_time 
-            logging.info('Train time (for epoch #{}): {:.3f} s'
-                        ''.format(epoch, train_time))
+
+            logging.info('Epoch #{} for Batch #{}'
+                        ''.format(epoch, batch_count))
+            logging.info('\t• Train Time: {:.3f} s'
+                        ''.format(train_time))
             # Save model 
             if epoch % 5 == 0 and epoch > 0:
                 checkpoint = {
                     'epoch': epoch, 
-                    'model': model.module.state_dict() } # checkpoint dict (before: model.module.state_dict())
+                    'model': model.module.state_dict() }
 
                 checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
                             
                 torch.save(checkpoint, checkpoint_path)
-                logging.info('Model saved to {}'.format(checkpoint_path))
+                logging.info('\t• Model saved to {}'.format(checkpoint_path))   
+            logging.info('\t• Loss: {:.3f}'
+                        ''.format(loss.item())) 
+            batch_count += 1
+            logging.info('------------------------------------')
 
-            # print(f"For epoch #{epoch}, loss = {loss.item()}")
-            print(f"Loss: {loss.item()}")
+    logging.info('------------------------------------')                  
     total_training_time = time.time() - full_training_start 
-    logging.info('Train time: {:.3f} s'
+    logging.info('Full Training Time: {:.3f} s'
                         ''.format(total_training_time)) 
 
-    best_checkpoint = np.argmax(np.array(val_list)) # get the index of best checkpoint
-    best_checkpoint_idx = (best_checkpoint +1) * 5
-    print("best checkpoint was at epoch:", best_checkpoint_idx)
-    # testing loop 
+    # Find and load in best checkpoint based off F1 Score
+    best_checkpoint = np.argmax(np.array(val_list)) 
+    best_checkpoint_idx = (best_checkpoint + 1) * 5
+    logging.info('Best Checkpoint Found at Epoch {}'.format(best_checkpoint_idx))  
     best_checkpoint_path = f"/content/checkpoints/main/holdout_fold=1/Transfer_Cnn14/pretrain=True/loss_type=clip_nll/augmentation=none/batch_size=32/freeze_base=False/{best_checkpoint_idx}_epochs.pth"
-    # model_for_testing = Model(sample_rate, window_size, hop_size, mel_bins, fmin, fmax,
-        classes_num, freeze_base)
-
     model.load_state_dict(torch.load(best_checkpoint_path)['model']) # choose the best checkpoint and load it
 
+    # Dataset and Dataloader for Testing
     test_dataset = GtzanDataset(test_dataset_dir)
-
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
         batch_size=1, shuffle = False,
         num_workers=num_workers, pin_memory=True)
-
+    # Testing Loop
     testing_begin_time = time.time()
-    model_for_testing.eval()
-
+    model.eval()
     statistics = evaluator.evaluate(test_loader)
-    logging.info('Testing accuracy: {:.3f}'.format(statistics['f1']))
-
-
+    logging.info('Testing F1 Score: {:.3f}'.format(statistics['f1']))
     testing_time = time.time() - testing_begin_time
     logging.info(
-                'Testing time: {:.3f} s'
+                'Total Testing Time: {:.3f} s'
                 ''.format(testing_time))
 
 
@@ -238,8 +228,6 @@ if __name__ == '__main__':
     parser_train.add_argument('--learning_rate', type=float, required=True)
     parser_train.add_argument('--batch_size', type=int, required=True)
     parser_train.add_argument("--max_epoch", type = int, required = True)
-    # parser_train.add_argument('--resume_iteration', type=int)
-    # parser_train.add_argument('--stop_iteration', type=int, required=True)
     parser_train.add_argument('--cuda', action='store_true', default=False)
 
     # Parse arguments
