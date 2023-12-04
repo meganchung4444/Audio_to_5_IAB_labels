@@ -26,8 +26,8 @@ class Evaluator(object):
   def __init__(self, model):
       self.model = model
       self.png_counter = 5
-      self.num_classes = 5
       self.classes = ["Automotive", "Food & Drink", "Pets", "War & Conflicts", "Music"]
+      self.num_classes = len(self.classes)
 
   def evaluate(self, data_loader):
       """
