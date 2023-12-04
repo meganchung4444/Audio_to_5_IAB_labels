@@ -1,395 +1,88 @@
 import numpy as np
-import h5py
-import csv
 import time
 import logging
 import os
-import glob
 import matplotlib.pyplot as plt
-import logging
 import pandas as pd
 import torch
-import os
 import wave
 import config
-# from utilities import int16_to_float32
 
 
-class GtzanDataset(object):
+class Dataset(object):
+    """
+      Dataset class for processing audio clips.
+
+      This class loads the audio clips from the csv file as input and returns a tensor 
+      of the audio waveform and target. 
+
+      Args:
+          dataset_file (str): File path to the dataset file 
+
+      Attributes:
+          dataframe (pd.DataFrame): Pandas DataFrame with the audio ID and labels.
+          labels (pd.Series): Series containing the labels.
+          features (pd.DataFrame): DataFrame containing the features.
+
+      Methods:
+          __getitem__(idx): Retrieves the audio waveform and target labels of the audio clip at the given index.
+          __len__(): Returns the number of audio clips in the dataset.
+      
+      References:
+        Adapted code for the getitem method from https://stackoverflow.com/questions/16778878/python-write-a-wav-file-into-numpy-float-array
+    """
     def __init__(self, dataset_file):
-        """This class takes the meta of an audio clip as input, and return 
-        the waveform and target of the audio clip. This class is used by DataLoader. 
-        Args:
-          clip_samples: int
-          classes_num: int
-        """
-        self.dataframe = pd.read_csv(dataset_file, header = 0)
-        # self.dataframe.to_hdf("dataset.h5", key = "data", format = "table")
-        self.label_col_name = "IAB Vector"
-        self.labels = self.dataframe[self.label_col_name]
-        self.features = self.dataframe.drop(columns = [self.label_col_name])
+      self.dataframe = pd.read_csv(dataset_file, header = 0)
+      self.labels = self.dataframe["IAB Vector"] # column name of label
+      self.features = self.dataframe.drop(columns = ["IAB Vector"])
         
-    
     def __getitem__(self, idx):
-        # get audio clip path
-        root_path = '/content/drive/My Drive'
-        folder = os.path.join(root_path, "GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED_FILES/AllAudioClips")
-        audio_clip_id = self.features["ID"].iloc[idx]
-        audio_name = audio_clip_id 
-        audio_path = os.path.join(folder, audio_name)
-        # find a method to take in audio path
-        # Read file to get buffer                                                                                               
-        ifile = wave.open(audio_path)
-        samples = ifile.getnframes()
-        audio = ifile.readframes(samples)
+      """
+      Retrieves the audio waveform and target labels of the audio clip at the given index.
 
-        # Convert buffer to float32 using NumPy                                                                                 
-        audio_as_np_int16 = np.frombuffer(audio, dtype=np.int16)
-        audio_as_np_float32 = audio_as_np_int16.astype(np.float32)
+      Args:
+          idx (int): Index of the audio clip.
 
-        # Normalise float32 array so that values are between -1.0 and +1.0                                                      
-        max_int16 = 2**15
-        audio_normalized = torch.tensor(audio_as_np_float32 / max_int16)
+      Returns:
+          dict: A dictionary containing 'audio' (waveform tensor) and 'target' (label tensor) keys.
+      """
+      # Get audio clip path
+      root_path = '/content/drive/My Drive'
+      folder = os.path.join(root_path, "GumGum/Notebooks/Panns_inference_files/audioset-processing/output/ORGANIZED_FILES/AllAudioClips")
+      audio_file_id = self.features["ID"].iloc[idx]
+      audio_path = os.path.join(folder, audio_file_id)
+      
+      # Read file to get buffer                                                                                               
+      audio_file = wave.open(audio_path)
+      samples = audio_file.getnframes()
+      audio = audio_file.readframes(samples)
 
-        if audio_normalized.shape[0] < 320000:
-          pad = audio_normalized[-1].repeat(320000 - audio_normalized.shape[0])
-          combined_audio_normalized = torch.cat((audio_normalized, pad))
-          audio_normalized = combined_audio_normalized
+      # Convert buffer to float32 using NumPy                                                                                 
+      audio_as_np_int16 = np.frombuffer(audio, dtype=np.int16)
+      audio_as_np_float32 = audio_as_np_int16.astype(np.float32)
 
-        # get label and convert to tensor
-        label = self.labels.iloc[idx]
-        label = label.strip('[]')
-        label = [int(val) for val in label if val != ',' and val != ' ']
-        label_tensor = torch.tensor(label)
-        return {"audio": audio_normalized, "target": label_tensor}
+      # Normalise float32 array so that values are between -1.0 and +1.0                                                      
+      max_int16 = 2**15
+      audio_normalized = torch.tensor(audio_as_np_float32 / max_int16)
+
+      # Convert all audio waveform tensors to 320000
+      if audio_normalized.shape[0] < 320000:
+        pad = audio_normalized[-1].repeat(320000 - audio_normalized.shape[0])
+        combined_audio_normalized = torch.cat((audio_normalized, pad))
+        audio_normalized = combined_audio_normalized
+
+      # Get label and convert to tensor
+      label = self.labels.iloc[idx]
+      label = label.strip('[]')
+      label = [int(val) for val in label if val != ',' and val != ' ']
+      label_tensor = torch.tensor(label)
+      return {"audio": audio_normalized, "target": label_tensor}
         
     def __len__(self):
-        return len(self.dataframe)
-    
-class Base(object):
-    def __init__(self, indexes_hdf5_path, batch_size, random_seed):
-        """Base class of train sampler.
-        
-        Args:
-          indexes_hdf5_path: string
-          batch_size: int
-          black_list_csv: string
-          random_seed: int
-        """
-        self.batch_size = batch_size
-        self.random_state = np.random.RandomState(random_seed)
+      """
+      Returns the number of audio clips in the dataset.
 
-        # Load target
-        load_time = time.time()
-
-        with h5py.File(indexes_hdf5_path, 'r') as hf:
-            self.audio_names = [audio_name.decode() for audio_name in hf['audio_name'][:]]
-            # self.hdf5_paths = [hdf5_path.decode() for hdf5_path in hf['hdf5_path'][:]]
-            self.indexes_in_hdf5 = hf['index_in_hdf5'][:]
-            self.targets = hf['target'][:].astype(np.float32)
-            self.folds = hf['fold'][:].astype(np.float32)
-        
-        (self.audios_num, self.classes_num) = self.targets.shape
-        logging.info('Training number: {}'.format(self.audios_num))
-        logging.info('Load target time: {:.3f} s'.format(time.time() - load_time))
-
-
-class TrainSampler(object):
-    def __init__(self, hdf5_path, holdout_fold, batch_size, random_seed=1234):
-        """Balanced sampler. Generate batch meta for training.
-        
-        Args:
-          indexes_hdf5_path: string
-          batch_size: int
-          black_list_csv: string
-          random_seed: int
-        """
-        # super(TrainSampler, self).__init__(indexes_hdf5_path, batch_size, 
-            # random_seed)
-
-        self.hdf5_path = hdf5_path 
-        self.batch_size = batch_size
-        self.random_state = np.random.RandomState(random_seed)
-
-        with h5py.File(hdf5_path, 'r') as hf:
-            self.folds = hf['fold'][:].astype(np.float32)
-
-        self.indexes = np.where(self.folds != int(holdout_fold))[0]
-        self.audios_num = len(self.indexes)
-        # self.validate_audio_indexes = np.where(self.folds == int(holdout_fold))[0]
-        
-        # self.indexes = np.arange(self.audios_num)
-            
-        # Shuffle indexes
-        self.random_state.shuffle(self.indexes)
-        
-        self.pointer = 0
-
-    def __iter__(self):
-        """Generate batch meta for training. 
-        
-        Returns:
-          batch_meta: e.g.: [
-            {'audio_name': 'YfWBzCRl6LUs.wav', 
-             'hdf5_path': 'xx/balanced_train.h5', 
-             'index_in_hdf5': 15734, 
-             'target': [0, 1, 0, 0, ...]}, 
-            ...]
-        """
-        batch_size = self.batch_size
-
-        while True:
-            batch_meta = []
-            i = 0
-            while i < batch_size:
-                index = self.indexes[self.pointer]
-                self.pointer += 1
-
-                # Shuffle indexes and reset pointer
-                if self.pointer >= self.audios_num:
-                    self.pointer = 0
-                    self.random_state.shuffle(self.indexes)
-                
-                batch_meta.append({
-                    'hdf5_path': self.hdf5_path, 
-                    'index_in_hdf5': self.indexes[self.pointer]})
-                i += 1
-
-            yield batch_meta
-
-    def state_dict(self):
-        state = {
-            'indexes': self.indexes,
-            'pointer': self.pointer}
-        return state
-            
-    def load_state_dict(self, state):
-        self.indexes = state['indexes']
-        self.pointer = state['pointer']
-
-
-class EvaluateSampler(object):
-    def __init__(self, hdf5_path, holdout_fold, batch_size, random_seed=1234):
-        """Balanced sampler. Generate batch meta for training.
-        
-        Args:
-          indexes_hdf5_path: string
-          batch_size: int
-          black_list_csv: string
-          random_seed: int
-        """
-        # super(TrainSampler, self).__init__(indexes_hdf5_path, batch_size, 
-            # random_seed)
-
-        self.hdf5_path = hdf5_path
-        self.batch_size = batch_size
-
-        with h5py.File(hdf5_path, 'r') as hf:
-            self.folds = hf['fold'][:].astype(np.float32)
-
-        self.indexes = np.where(self.folds == int(holdout_fold))[0]
-        self.audios_num = len(self.indexes)
-        
-    def __iter__(self):
-        """Generate batch meta for training. 
-        
-        Returns:
-          batch_meta: e.g.: [
-            {'audio_name': 'YfWBzCRl6LUs.wav', 
-             'hdf5_path': 'xx/balanced_train.h5', 
-             'index_in_hdf5': 15734, 
-             'target': [0, 1, 0, 0, ...]}, 
-            ...]
-        """
-        batch_size = self.batch_size
-        pointer = 0
-
-        while pointer < self.audios_num:
-            batch_indexes = np.arange(pointer, 
-                min(pointer + batch_size, self.audios_num))
-
-            batch_meta = []
-
-            for i in batch_indexes:
-                batch_meta.append({
-                    'hdf5_path': self.hdf5_path, 
-                    'index_in_hdf5': self.indexes[i]})
-
-            pointer += batch_size
-            yield batch_meta
-
-
-def collate_fn(list_data_dict):
-    """Collate data.
-    Args:
-      list_data_dict, e.g., [{'audio_name': str, 'waveform': (clip_samples,), ...}, 
-                             {'audio_name': str, 'waveform': (clip_samples,), ...},
-                             ...]
-    Returns:
-      np_data_dict, dict, e.g.,
-          {'audio_name': (batch_size,), 'waveform': (batch_size, clip_samples), ...}
-    """
-    np_data_dict = {}
-    
-    for key in list_data_dict[0].keys():
-        np_data_dict[key] = np.array([data_dict[key] for data_dict in list_data_dict])
-    
-    return np_data_dict
-
-
-# class Base(object):
-    
-#     def __init__(self):
-#         '''Base class for data generator
-#         '''
-#         pass
-
-#     def load_hdf5(self, hdf5_path):
-#         '''Load hdf5 file. 
-        
-#         Returns:
-#           data_dict: dict of data, e.g.:
-#             {'audio_name': np.array(['a.wav', 'b.wav', ...]), 
-#              'feature': (audios_num, frames_num, mel_bins)
-#              'target': (audios_num,), 
-#              ...}
-#         '''
-#         data_dict = {}
-        
-#         with h5py.File(hdf5_path, 'r') as hf:
-#             data_dict['audio_name'] = np.array(
-#                 [audio_name.decode() for audio_name in hf['audio_name'][:]])
-
-#             data_dict['waveform'] = hf['waveform'][:]
-#             data_dict['target'] = hf['target'][:].astype(np.float32)
-#             data_dict['fold'] = hf['fold'][:].astype(np.int32)
-            
-#         return data_dict
-
-#     def transform(self, x):
-#         return scale(x, self.scalar['mean'], self.scalar['std'])
-
-
-# class DataGenerator(Base):
-    
-#     def __init__(self, hdf5_path, holdout_fold, batch_size):
-#         '''Data generator for training and validation. 
-        
-#         Args:
-#           feature_hdf5_path: string, path of hdf5 feature file
-#           train_csv: string, path of train csv file
-#           validate_csv: string, path of validate csv file
-#           holdout_fold: set 1 for development and none for training 
-#               on all data without validation
-#           scalar: object, containing mean and std value
-#           batch_size: int
-#           seed: int, random seed
-#         '''
- 
-#         self.batch_size = batch_size
-#         self.random_state = np.random.RandomState(random_seed)
-        
-#         # self.classes_num = classes_num
-#         self.all_classes_num = len(config.labels)
-#         self.lb_to_idx = config.lb_to_idx
-#         self.idx_to_lb = config.idx_to_lb
-        
-#         # Load training data
-#         load_time = time.time()
-        
-#         self.data_dict = self.load_hdf5(hdf5_path)
-
-#         self.train_audio_indexes = np.where(self.data_dict['fold'] != int(holdout_fold))[0]
-#         self.validate_audio_indexes = np.where(self.data_dict['fold'] == int(holdout_fold))[0]
-
-#         if few_shots > 0:
-#             self.random_state.shuffle(self.train_audio_indexes)
-#             classes_num = self.data_dict['weak_target'].shape[-1]
-#             new_indexes = []
-#             for k in range(classes_num):
-#                 new_indexes.append(self.train_audio_indexes[np.where(
-#                     self.data_dict['weak_target'][self.train_audio_indexes][:, k] == 1)[0][0 : few_shots]])
-#             self.train_audio_indexes = np.concatenate(new_indexes)
-
-#         logging.info('Load data time: {:.3f} s'.format(time.time() - load_time))
-#         logging.info('Training audio num: {}'.format(len(self.train_audio_indexes)))            
-#         logging.info('Validation audio num: {}'.format(len(self.validate_audio_indexes)))
-        
-#         self.random_state.shuffle(self.train_audio_indexes)
-#         self.pointer = 0
-        
-#     def generate_train(self):
-#         '''Generate mini-batch data for training. 
-        
-#         Returns:
-#           batch_data_dict: dict containing audio_name, feature and target
-#         '''
-
-#         while True:
-#             # Reset pointer
-#             if self.pointer >= len(self.train_audio_indexes):
-#                 self.pointer = 0
-#                 self.random_state.shuffle(self.train_audio_indexes)
-
-#             # Get batch audio_indexes
-#             batch_audio_indexes = self.train_audio_indexes[
-#                 self.pointer: self.pointer + self.batch_size]
-                
-#             self.pointer += self.batch_size
-
-#             batch_data_dict = {}
-
-#             batch_data_dict['audio_name'] = \
-#                 self.data_dict['audio_name'][batch_audio_indexes]
-            
-#             batch_data_dict['waveform'] = int16_to_float32(self.data_dict['waveform'][batch_audio_indexes])
-#             batch_data_dict['weak_target'] = self.data_dict['weak_target'][batch_audio_indexes]
-            
-#             yield batch_data_dict
-
-#     def generate_validate(self, data_type, source, max_iteration=None):
-#         '''Generate mini-batch data for training. 
-        
-#         Args:
-#           data_type: 'train' | 'validate'
-#           source: 'a' | 'b' | 'c'
-#           max_iteration: int, maximum iteration to validate to speed up validation
-        
-#         Returns:
-#           batch_data_dict: dict containing audio_name, feature and target
-#         '''
-        
-#         batch_size = self.batch_size
-        
-#         if data_type == 'train':
-#             audio_indexes = np.array(self.train_audio_indexes)
-#         elif data_type == 'validate':
-#             audio_indexes = np.array(self.validate_audio_indexes)
-#         else:
-#             raise Exception('Incorrect argument!')
-            
-#         iteration = 0
-#         pointer = 0
-        
-#         while True:
-#             if iteration == max_iteration:
-#                 break
-
-#             # Reset pointer
-#             if pointer >= len(audio_indexes):
-#                 break
-
-#             # Get batch audio_indexes
-#             batch_audio_indexes = audio_indexes[pointer: pointer + batch_size]                
-#             pointer += batch_size
-#             iteration += 1
-
-#             batch_data_dict = {}
-
-#             batch_data_dict['audio_name'] = \
-#                 self.data_dict['audio_name'][batch_audio_indexes]
-            
-#             batch_data_dict['waveform'] = int16_to_float32(self.data_dict['waveform'][batch_audio_indexes])
-#             batch_data_dict['weak_target'] = self.data_dict['weak_target'][batch_audio_indexes]
-            
-#             yield batch_data_dict
+      Returns:
+          int: Number of audio clips.
+      """
+      return len(self.dataframe)
