@@ -15,7 +15,7 @@ from config import (sample_rate, classes_num, mel_bins, fmin, fmax, window_size,
 from losses import get_loss_func
 from pytorch_utils import move_data_to_device, do_mixup
 from utilities import (create_folder, get_filename, create_logging, StatisticsContainer, Mixup)
-from data_generator import Dataset
+from data_generator import AudioDataset
 from models import Transfer_Cnn14
 from evaluate import Evaluator
 
