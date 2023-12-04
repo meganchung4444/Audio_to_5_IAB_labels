@@ -128,60 +128,64 @@ def train(args):
           val_begin_time = time.time()
 
           statistics = evaluator.evaluate(validate_loader)
-          logging.info(f"\t•Classification Report: {statistics['report']}")
+          logging.info(f"\t• Classification Report: {statistics['report']}")
           val_list.append(statistics["f1"])
 
           validate_time = time.time() - val_begin_time
-          logging.info('\t•Validate Time: {:.3f} s\n'.format(validate_time))
+          logging.info('\t• Validate Time: {:.3f} s\n'.format(validate_time))
 
       # Train on Mini Batches
       batch_count = 0
       train_bgn_time = time.time()
       total_loss = 0
+      total_epoch_training_time = 0
       for batch_data_dict in train_loader:
           
-          # Move data to GPU
-          for key in batch_data_dict.keys(): 
-              batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
-              
-          # Train
-          model.train()
+        # Move data to GPU
+        for key in batch_data_dict.keys(): 
+            batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
+            
+        # Train
+        model.train()
 
-          # Inference for Training Data
-          batch_output_dict = model(batch_data_dict['audio'], None)
-          """{'clipwise_output': (batch_size, classes_num), ...}"""
-          batch_target_dict = {'target': batch_data_dict['target']}
-          """{'target': (batch_size, classes_num)}"""
+        # Inference for Training Data
+        batch_output_dict = model(batch_data_dict['audio'], None)
+        """{'clipwise_output': (batch_size, classes_num), ...}"""
+        batch_target_dict = {'target': batch_data_dict['target']}
+        """{'target': (batch_size, classes_num)}"""
 
-          # Loss
-          loss = loss_func(batch_output_dict, batch_target_dict)
+        # Loss
+        loss = loss_func(batch_output_dict, batch_target_dict)
+        
+        # Backward (to update model)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        total_loss += loss.item()
+        train_time = time.time() - train_bgn_time 
+        total_epoch_training_time += train_time
+        logging.info('Epoch #{} for Batch #{}'.format(epoch, batch_count))
+        batch_count += 1
+        logging.info('\t• Train Time: {:.3f} s'.format(train_time))
+        
+        logging.info('\t• Loss: {:.3f}'.format(loss.item())) 
           
-          # Backward (to update model)
-          optimizer.zero_grad()
-          loss.backward()
-          optimizer.step()
-          
-          total_loss += loss.item()
-          train_time = time.time() - train_bgn_time 
+        # Save model 
+        if epoch % 5 == 0 and epoch > 0:
+            checkpoint = {
+                'epoch': epoch, 
+                'model': model.module.state_dict() }
 
-          logging.info('Epoch #{} for Batch #{}'.format(epoch, batch_count))
-          batch_count += 1
-          logging.info('\t• Train Time: {:.3f} s'.format(train_time))
-          
-          logging.info('\t• Loss: {:.3f}'.format(loss.item())) 
-          
-          # Save model 
-          if epoch % 5 == 0 and epoch > 0:
-              checkpoint = {
-                  'epoch': epoch, 
-                  'model': model.module.state_dict() }
-
-              checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
-                          
-              torch.save(checkpoint, checkpoint_path)
-              logging.info('\t• Model saved to {}'.format(checkpoint_path))   
+            checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
+                        
+            torch.save(checkpoint, checkpoint_path)
+            logging.info('\t• Model saved to {}'.format(checkpoint_path)) 
+        logging.info('------------------------------------') 
+    
       average_loss = total_loss / len(train_loader)
-      logging.info('\t• Average Loss for Epoch #{}: {:.3f}'.format(epoch, average_loss))
+      logging.info('Average Loss for Epoch #{}: {:.3f}'.format(epoch, average_loss))
+      logging.info('Total Training Time for Epoch #{}: {:.3f} s'.format(epoch, total_epoch_training_time))
 
   logging.info('------------------------------------')                  
   total_training_time = time.time() - full_training_start 
