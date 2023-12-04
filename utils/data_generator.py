@@ -9,7 +9,7 @@ import wave
 import config
 
 
-class Dataset(object):
+class AudioDataset(object):
     """
       Dataset class for processing audio clips.
 
