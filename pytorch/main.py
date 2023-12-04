@@ -119,7 +119,6 @@ def train(args):
   # Training Loop (train a batch every epoch)
   for epoch in range(max_epoch):
       print()
-      epoch = 5
       # Evaluation for every 5th epoch
       if epoch % 5 == 0 and epoch > 0:
           model.eval()
