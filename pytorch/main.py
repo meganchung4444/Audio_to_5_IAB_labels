@@ -6,236 +6,237 @@ import argparse
 import time
 import logging
 import matplotlib.pyplot as plt
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
- 
 from config import (sample_rate, classes_num, mel_bins, fmin, fmax, window_size, 
     hop_size, window, pad_mode, center, ref, amin, top_db)
 from losses import get_loss_func
 from pytorch_utils import move_data_to_device, do_mixup
 from utilities import (create_folder, get_filename, create_logging, StatisticsContainer, Mixup)
-from data_generator import GtzanDataset
+from data_generator import Dataset
 from models import Transfer_Cnn14
 from evaluate import Evaluator
 
 
 def train(args):
+  """
+  Train, validate, and test a neural network model.
 
-    # Handling the arugments & parameters
-    training_dataset_dir = args.training_dataset_dir
-    val_dataset_dir = args.val_dataset_dir
-    test_dataset_dir = args.test_dataset_dir
-    workspace = args.workspace
-    holdout_fold = args.holdout_fold
-    model_type = args.model_type
-    pretrained_checkpoint_path = args.pretrained_checkpoint_path
-    freeze_base = args.freeze_base
-    loss_type = args.loss_type
-    augmentation = args.augmentation
-    learning_rate = args.learning_rate
-    batch_size = args.batch_size
-    max_epoch = args.max_epoch
-    device = 'cuda' if (args.cuda and torch.cuda.is_available()) else 'cpu'
-    filename = args.filename
-    num_workers = 2 
+  Args:
+      args (argparse.Namespace): Command-line arguments and configurations from the shellfile.
+  """
+  # Handling the arugments & parameters
+  training_dataset_dir = args.training_dataset_dir
+  val_dataset_dir = args.val_dataset_dir
+  test_dataset_dir = args.test_dataset_dir
+  workspace = args.workspace
+  holdout_fold = args.holdout_fold
+  model_type = args.model_type
+  pretrained_checkpoint_path = args.pretrained_checkpoint_path
+  freeze_base = args.freeze_base
+  loss_type = args.loss_type
+  augmentation = args.augmentation
+  learning_rate = args.learning_rate
+  batch_size = args.batch_size
+  max_epoch = args.max_epoch
+  device = 'cuda' if (args.cuda and torch.cuda.is_available()) else 'cpu'
+  filename = args.filename
+  num_workers = 2 
 
-    loss_func = get_loss_func(loss_type)
-    pretrain = True if pretrained_checkpoint_path else False
+  loss_func = get_loss_func(loss_type)
+  pretrain = True if pretrained_checkpoint_path else False
 
-    # Creating folder for logging information
-    checkpoints_dir = os.path.join(workspace, 'checkpoints', filename, 
-        'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
-        'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation),
-         'batch_size={}'.format(batch_size), 'freeze_base={}'.format(freeze_base))
-    create_folder(checkpoints_dir)
-
-    statistics_path = os.path.join(workspace, 'statistics', filename, 
-        'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
-        'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation), 
-        'batch_size={}'.format(batch_size), 'freeze_base={}'.format(freeze_base), 
-        'statistics.pickle')
-    create_folder(os.path.dirname(statistics_path))
-    
-    logs_dir = os.path.join(workspace, 'logs', filename, 
-        'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
-        'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation), 
+  # Creating folder for logging information
+  checkpoints_dir = os.path.join(workspace, 'checkpoints', filename, 
+      'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
+      'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation),
         'batch_size={}'.format(batch_size), 'freeze_base={}'.format(freeze_base))
-    create_logging(logs_dir, 'w')
-    logging.info(args)
+  create_folder(checkpoints_dir)
 
-    if 'cuda' in device:
-        logging.info('Using GPU.')
-    else:
-        logging.info('Using CPU. Set --cuda flag to use GPU.')
+  statistics_path = os.path.join(workspace, 'statistics', filename, 
+      'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
+      'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation), 
+      'batch_size={}'.format(batch_size), 'freeze_base={}'.format(freeze_base), 
+      'statistics.pickle')
+  create_folder(os.path.dirname(statistics_path))
+  
+  logs_dir = os.path.join(workspace, 'logs', filename, 
+      'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
+      'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation), 
+      'batch_size={}'.format(batch_size), 'freeze_base={}'.format(freeze_base))
+  create_logging(logs_dir, 'w')
+  logging.info(args)
+
+  if 'cuda' in device:
+      logging.info('Using GPU.')
+  else:
+      logging.info('Using CPU. Set --cuda flag to use GPU.')
+  
+  # Model
+  Model = eval(model_type)
+  model = Model(sample_rate, window_size, hop_size, mel_bins, fmin, fmax, 
+      classes_num, freeze_base)
+
+  # Statistics
+  statistics_container = StatisticsContainer(statistics_path)
+
+  if pretrain:
+      logging.info('Load pretrained model from {}'.format(pretrained_checkpoint_path))
+      model.load_from_pretrain(pretrained_checkpoint_path)
+
+  # Parallel
+  print('GPU number: {}'.format(torch.cuda.device_count()))
+  model = torch.nn.DataParallel(model)
+
+  # Dataset Class for training and validation
+  training_dataset = AudioDataset(training_dataset_dir)
+  validation_dataset = AudioDataset(val_dataset_dir)
+  
+  # Data Loader for training and validation
+  train_loader = torch.utils.data.DataLoader(dataset=training_dataset, 
+      batch_size=32, shuffle = True, 
+      num_workers=num_workers, pin_memory=True)
+
+  validate_loader = torch.utils.data.DataLoader(dataset=validation_dataset, 
+      batch_size=1, shuffle = False, 
+      num_workers=num_workers, pin_memory=True)
+
+  if 'cuda' in device:
+      model.to(device)
+
+  # Optimizer
+  optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999),
+      eps=1e-08, weight_decay=0., amsgrad=True)
     
-    # Model
-    Model = eval(model_type)
-    model = Model(sample_rate, window_size, hop_size, mel_bins, fmin, fmax, 
-        classes_num, freeze_base)
+  # Evaluator
+  evaluator = Evaluator(model=model)
+  
+  full_training_start = time.time()
+  val_list = [] # list to check the best f1 score to determine the best checkpoint
+  
+  # Training Loop (train a batch every epoch)
+  for epoch in range(max_epoch):
+      print()
+      epoch = 5
+      # Evaluation for every 5th epoch
+      if epoch % 5 == 0 and epoch > 0:
+          model.eval()
 
-    # Statistics
-    statistics_container = StatisticsContainer(statistics_path)
+          logging.info('Validation for Epoch #{}'.format(epoch))
 
-    if pretrain:
-        logging.info('Load pretrained model from {}'.format(pretrained_checkpoint_path))
-        model.load_from_pretrain(pretrained_checkpoint_path)
+          val_begin_time = time.time()
 
-    # Parallel
-    print('GPU number: {}'.format(torch.cuda.device_count()))
-    model = torch.nn.DataParallel(model)
+          statistics = evaluator.evaluate(validate_loader)
+          logging.info(f"\t•Classification Report: {statistics['report']}")
+          val_list.append(statistics["f1"])
 
-    training_dataset = GtzanDataset(training_dataset_dir)
-    validation_dataset = GtzanDataset(val_dataset_dir)
-    
-    # Data loader
-    train_loader = torch.utils.data.DataLoader(dataset=training_dataset, 
-        batch_size=32, shuffle = True, 
-        num_workers=num_workers, pin_memory=True)
+          validate_time = time.time() - val_begin_time
+          logging.info('\t•Validate Time: {:.3f} s\n'.format(validate_time))
 
-    validate_loader = torch.utils.data.DataLoader(dataset=validation_dataset, 
-        batch_size=1, shuffle = False, 
-        num_workers=num_workers, pin_memory=True)
+      # Train on Mini Batches
+      batch_count = 0
+      train_bgn_time = time.time()
+      total_loss = 0
+      for batch_data_dict in train_loader:
+          
+          # Move data to GPU
+          for key in batch_data_dict.keys(): 
+              batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
+              
+          # Train
+          model.train()
 
-    if 'cuda' in device:
-        model.to(device)
+          # Inference for Training Data
+          batch_output_dict = model(batch_data_dict['audio'], None)
+          """{'clipwise_output': (batch_size, classes_num), ...}"""
+          batch_target_dict = {'target': batch_data_dict['target']}
+          """{'target': (batch_size, classes_num)}"""
 
-    # Optimizer
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999),
-        eps=1e-08, weight_decay=0., amsgrad=True)
-     
-    # Evaluator
-    evaluator = Evaluator(model=model)
-    
-    full_training_start = time.time()
-    val_list = [] # list to check the best f1 score to determine the best checkpoint
-    # Training Loop (train a batch every epoch)
-    for epoch in range(max_epoch):
-        print()
-        # logging.info('EPOCH #{}'.format(epoch))
-        # logging.info('------------------------------------')
-        # Evaluation for every 5th epoch
-        if epoch % 5 == 0 and epoch > 0:
-            model.eval()
-            # logging.info('------------------------------------')
-            logging.info('Validation for Epoch #{}'.format(epoch))
+          # Loss
+          loss = loss_func(batch_output_dict, batch_target_dict)
+          
+          # Backward (to update model)
+          optimizer.zero_grad()
+          loss.backward()
+          optimizer.step()
+          
+          total_loss += loss.item()
+          train_time = time.time() - train_bgn_time 
 
-            val_begin_time = time.time()
+          logging.info('Epoch #{} for Batch #{}'.format(epoch, batch_count))
+          batch_count += 1
+          logging.info('\t• Train Time: {:.3f} s'.format(train_time))
+          
+          logging.info('\t• Loss: {:.3f}'.format(loss.item())) 
+          
+          # Save model 
+          if epoch % 5 == 0 and epoch > 0:
+              checkpoint = {
+                  'epoch': epoch, 
+                  'model': model.module.state_dict() }
 
-            statistics = evaluator.evaluate(validate_loader)
-            logging.info(f"\t•Classification Report: {statistics['report']}")
-            # logging.info('Validation Set F1 Score: {:.3f}'.format(statistics['f1']))
-            val_list.append(statistics["f1"])
+              checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
+                          
+              torch.save(checkpoint, checkpoint_path)
+              logging.info('\t• Model saved to {}'.format(checkpoint_path))   
+      average_loss = total_loss / len(train_loader)
+      logging.info('\t• Average Loss for Epoch #{}: {:.3f}'.format(epoch, average_loss))
 
-            validate_time = time.time() - val_begin_time
-            logging.info(
-                '\t•Validate Time: {:.3f} s\n'
-                ''.format(validate_time))
+  logging.info('------------------------------------')                  
+  total_training_time = time.time() - full_training_start 
+  logging.info('Full Training Time: {:.3f} s'.format(total_training_time)) 
 
-        # Train on Mini Batches
-        batch_count = 0
-        train_bgn_time = time.time()
-        for batch_data_dict in train_loader:
-            
-            # Move data to GPU
-            for key in batch_data_dict.keys(): 
-                batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
-                
-            # Train
-            model.train()
+  # Find and Load in Best Checkpoint (based off F1 Score)
+  best_checkpoint = np.argmax(np.array(val_list)) 
+  best_checkpoint_idx = (best_checkpoint + 1) * 5
+  logging.info('Best Checkpoint Found at Epoch {}'.format(best_checkpoint_idx))  
+  best_checkpoint_path = f"/content/checkpoints/main/holdout_fold=1/Transfer_Cnn14/pretrain=True/loss_type=clip_nll/augmentation=none/batch_size=32/freeze_base=False/{best_checkpoint_idx}_epochs.pth"
+  model.load_state_dict(torch.load(best_checkpoint_path)['model']) # choose the best checkpoint and load it
 
-            # Inference for training data
-            batch_output_dict = model(batch_data_dict['audio'], None)
-            """{'clipwise_output': (batch_size, classes_num), ...}"""
-            batch_target_dict = {'target': batch_data_dict['target']}
-            """{'target': (batch_size, classes_num)}"""
-
-            # Loss
-            loss = loss_func(batch_output_dict, batch_target_dict)
-            
-            # Backward (to update model)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            
-            train_time = time.time() - train_bgn_time 
-
-            logging.info('Epoch #{} for Batch #{}'
-                        ''.format(epoch, batch_count))
-            logging.info('\t• Train Time: {:.3f} s'
-                        ''.format(train_time))
-            # Save model 
-            if epoch % 5 == 0 and epoch > 0:
-                checkpoint = {
-                    'epoch': epoch, 
-                    'model': model.module.state_dict() }
-
-                checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
-                            
-                torch.save(checkpoint, checkpoint_path)
-                logging.info('\t• Model saved to {}'.format(checkpoint_path))   
-            logging.info('\t• Loss: {:.3f}'
-                        ''.format(loss.item())) 
-            batch_count += 1
-            logging.info('------------------------------------')
-
-    logging.info('------------------------------------')                  
-    total_training_time = time.time() - full_training_start 
-    logging.info('Full Training Time: {:.3f} s'
-                        ''.format(total_training_time)) 
-
-    # Find and load in best checkpoint based off F1 Score
-    best_checkpoint = np.argmax(np.array(val_list)) 
-    best_checkpoint_idx = (best_checkpoint + 1) * 5
-    logging.info('Best Checkpoint Found at Epoch {}'.format(best_checkpoint_idx))  
-    best_checkpoint_path = f"/content/checkpoints/main/holdout_fold=1/Transfer_Cnn14/pretrain=True/loss_type=clip_nll/augmentation=none/batch_size=32/freeze_base=False/{best_checkpoint_idx}_epochs.pth"
-    model.load_state_dict(torch.load(best_checkpoint_path)['model']) # choose the best checkpoint and load it
-
-    # Dataset and Dataloader for Testing
-    test_dataset = GtzanDataset(test_dataset_dir)
-    test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
-        batch_size=1, shuffle = False,
-        num_workers=num_workers, pin_memory=True)
-    # Testing Loop
-    testing_begin_time = time.time()
-    model.eval()
-    statistics = evaluator.evaluate(test_loader)
-    logging.info('Testing F1 Score: {:.3f}'.format(statistics['f1']))
-    testing_time = time.time() - testing_begin_time
-    logging.info(
-                'Total Testing Time: {:.3f} s'
-                ''.format(testing_time))
+  # Dataset and Dataloader for Testing
+  test_dataset = AudioDataset(test_dataset_dir)
+  test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+      batch_size=1, shuffle = False,
+      num_workers=num_workers, pin_memory=True)
+  
+  # Testing Loop
+  testing_begin_time = time.time()
+  model.eval()
+  statistics = evaluator.evaluate(test_loader)
+  logging.info('Testing F1 Score: {:.3f}'.format(statistics['f1']))
+  testing_time = time.time() - testing_begin_time
+  logging.info('Total Testing Time: {:.3f} s'.format(testing_time))
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Example of parser. ')
-    subparsers = parser.add_subparsers(dest='mode')
+  parser = argparse.ArgumentParser(description='Example of parser. ')
+  subparsers = parser.add_subparsers(dest='mode')
 
-    # Train
-    parser_train = subparsers.add_parser('train')
-    parser_train.add_argument('--training_dataset_dir', type=str, required=True, help='Directory of training dataset.')
-    parser_train.add_argument('--val_dataset_dir', type=str, required=True, help='Directory of validation dataset.')
-    parser_train.add_argument('--test_dataset_dir', type=str, required=True, help='Directory of testing dataset.')
-    parser_train.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')
-    parser_train.add_argument('--holdout_fold', type=str, choices=['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], required=True)
-    parser_train.add_argument('--model_type', type=str, required=True)
-    parser_train.add_argument('--pretrained_checkpoint_path', type=str)
-    parser_train.add_argument('--freeze_base', action='store_true', default=False)
-    parser_train.add_argument('--loss_type', type=str, required=True)
-    parser_train.add_argument('--augmentation', type=str, choices=['none', 'mixup'], required=True)
-    parser_train.add_argument('--learning_rate', type=float, required=True)
-    parser_train.add_argument('--batch_size', type=int, required=True)
-    parser_train.add_argument("--max_epoch", type = int, required = True)
-    parser_train.add_argument('--cuda', action='store_true', default=False)
+  # Train
+  parser_train = subparsers.add_parser('train')
+  parser_train.add_argument('--training_dataset_dir', type=str, required=True, help='Directory of training dataset.')
+  parser_train.add_argument('--val_dataset_dir', type=str, required=True, help='Directory of validation dataset.')
+  parser_train.add_argument('--test_dataset_dir', type=str, required=True, help='Directory of testing dataset.')
+  parser_train.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')
+  parser_train.add_argument('--holdout_fold', type=str, choices=['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], required=True)
+  parser_train.add_argument('--model_type', type=str, required=True)
+  parser_train.add_argument('--pretrained_checkpoint_path', type=str)
+  parser_train.add_argument('--freeze_base', action='store_true', default=False)
+  parser_train.add_argument('--loss_type', type=str, required=True)
+  parser_train.add_argument('--augmentation', type=str, choices=['none', 'mixup'], required=True)
+  parser_train.add_argument('--learning_rate', type=float, required=True)
+  parser_train.add_argument('--batch_size', type=int, required=True)
+  parser_train.add_argument("--max_epoch", type = int, required = True)
+  parser_train.add_argument('--cuda', action='store_true', default=False)
 
-    # Parse arguments
-    args = parser.parse_args()
-    args.filename = get_filename(__file__)
+  # Parse arguments
+  args = parser.parse_args()
+  args.filename = get_filename(__file__)
 
-    if args.mode == 'train':
-        train(args)
+  if args.mode == 'train':
+      train(args)
 
-    else:
-        raise Exception('Error argument!')
+  else:
+      raise Exception('Error argument!')
