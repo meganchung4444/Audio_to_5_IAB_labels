@@ -116,7 +116,7 @@ def train(args):
   full_training_start = time.time()
   val_list = [] # list to check the best f1 score to determine the best checkpoint
   epoch_loss = [] # list to keep track of each epoch's loss
-  # Training Loop (train a batch every epoch)
+  # Training Loop
   for epoch in range(1, max_epoch + 1):
       print()
       # Evaluation for every 5th epoch
