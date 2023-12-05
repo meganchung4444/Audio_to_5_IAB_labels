@@ -115,9 +115,9 @@ def train(args):
   
   full_training_start = time.time()
   val_list = [] # list to check the best f1 score to determine the best checkpoint
-  
+  epoch_loss = [] # list to keep track of each epoch's loss
   # Training Loop (train a batch every epoch)
-  for epoch in range(max_epoch):
+  for epoch in range(1, max_epoch + 1):
       print()
       # Evaluation for every 5th epoch
       if epoch % 5 == 0 and epoch > 0:
@@ -128,6 +128,7 @@ def train(args):
           val_begin_time = time.time()
 
           statistics = evaluator.evaluate(validate_loader)
+          logging.info(f"\t• F1 Score: {statistics['f1']}")
           logging.info(f"\t• Classification Report: {statistics['report']}")
           val_list.append(statistics["f1"])
 
@@ -165,7 +166,7 @@ def train(args):
         total_loss += loss.item()
         train_time = time.time() - train_bgn_time 
         total_epoch_training_time += train_time
-        logging.info('Epoch #{} for Batch #{}'.format(epoch, batch_count))
+        logging.info('Epoch #{} for Iteration #{}'.format(epoch, batch_count))
         batch_count += 1
         logging.info('\t• Train Time: {:.3f} s'.format(train_time))
         
@@ -182,14 +183,17 @@ def train(args):
             torch.save(checkpoint, checkpoint_path)
             logging.info('\t• Model saved to {}'.format(checkpoint_path)) 
         logging.info('------------------------------------') 
-    
+      epoch_loss.append(total_loss)
       average_loss = total_loss / len(train_loader)
       logging.info('Average Loss for Epoch #{}: {:.3f}'.format(epoch, average_loss))
       logging.info('Total Training Time for Epoch #{}: {:.3f} s'.format(epoch, total_epoch_training_time))
 
   logging.info('------------------------------------')                  
   total_training_time = time.time() - full_training_start 
+  logging.info('Average Overall Loss: {:.3f} s'.format(sum(epoch_loss)/len(epoch_loss))) 
+  logging.info('Average Overall F1: {:.3f} s'.format(sum(val_list)/len(val_list))) 
   logging.info('Full Training Time: {:.3f} s'.format(total_training_time)) 
+  plot_loss_and_f1(epoch_loss, val_list)
 
   # Find and Load in Best Checkpoint (based off F1 Score)
   best_checkpoint = np.argmax(np.array(val_list)) 
@@ -211,6 +215,36 @@ def train(args):
   logging.info('Testing F1 Score: {:.3f}'.format(statistics['f1']))
   testing_time = time.time() - testing_begin_time
   logging.info('Total Testing Time: {:.3f} s'.format(testing_time))
+
+def plot_loss_and_f1(loss_arr, f1_arr):
+
+  f1_range = list(range(5, 101, 5))  # for every 5th epoch
+  loss_range = list(range(1, 101, 1))  # for all 100 epochs
+
+  fig, ax1 = plt.subplots(figsize=(10, 5))
+
+  ax1.plot(loss_arr, loss_range, marker='o', linestyle='-', color='b', label='F1 Score')
+  ax1.set_xlabel('Epochs')
+  ax1.set_ylabel('F1 Score', color='b')
+  ax1.tick_params('y', colors='b')
+
+  ax2 = ax1.twinx()
+  ax2.plot(f1_arr, f1_range, marker='o', linestyle='-', color='r', label='Loss')
+  ax2.set_ylabel('Loss', color='r')
+  ax2.tick_params('y', colors='r')
+
+  lines, labels = ax1.get_legend_handles_labels()
+  lines2, labels2 = ax2.get_legend_handles_labels()
+  ax2.legend(lines + lines2, labels + labels2, loc='upper left')
+
+  plt.title('F1 Score and Loss over Epochs')
+  plt.grid(True)
+  filename = f"loss_and_f1_plot.png"
+  filepath = os.path.join("/content/figures/", filename) 
+  
+  plt.savefig(filepath)
+  
+
 
 
 if __name__ == '__main__':
