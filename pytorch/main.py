@@ -119,21 +119,6 @@ def train(args):
   # Training Loop
   for epoch in range(1, max_epoch + 1):
       print()
-      # Evaluation for every 5th epoch
-      if epoch % 5 == 0 and epoch > 0:
-          model.eval()
-
-          logging.info('Validation for Epoch #{}'.format(epoch))
-
-          val_begin_time = time.time()
-
-          statistics = evaluator.evaluate(validate_loader)
-          logging.info(f"\t• F1 Score: {statistics['f1']}")
-          logging.info(f"\t• Classification Report: {statistics['report']}")
-          val_list.append(statistics["f1"])
-
-          validate_time = time.time() - val_begin_time
-          logging.info('\t• Validate Time: {:.3f} s\n'.format(validate_time))
 
       # Train on Mini Batches
       batch_count = 0
@@ -171,18 +156,34 @@ def train(args):
         logging.info('\t• Train Time: {:.3f} s'.format(train_time))
         
         logging.info('\t• Loss: {:.3f}'.format(loss.item())) 
-          
-        # Save model 
-        if epoch % 5 == 0 and epoch > 0:
-            checkpoint = {
-                'epoch': epoch, 
-                'model': model.module.state_dict() }
 
-            checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
-                        
-            torch.save(checkpoint, checkpoint_path)
-            logging.info('\t• Model saved to {}'.format(checkpoint_path)) 
-        logging.info('------------------------------------') 
+      # Evaluation for every 5th epoch
+      if epoch % 5 == 0 and epoch > 0:
+          model.eval()
+
+          logging.info('Validation for Epoch #{}'.format(epoch))
+
+          val_begin_time = time.time()
+
+          statistics = evaluator.evaluate(validate_loader)
+          logging.info(f"\t• F1 Score: {statistics['f1']}")
+          logging.info(f"\t• Classification Report: {statistics['report']}")
+          val_list.append(statistics["f1"])
+
+          validate_time = time.time() - val_begin_time
+          logging.info('\t• Validate Time: {:.3f} s\n'.format(validate_time))
+
+      # Save model 
+      if epoch % 5 == 0 and epoch > 0:
+          checkpoint = {
+              'epoch': epoch, 
+              'model': model.module.state_dict() }
+
+          checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
+                      
+          torch.save(checkpoint, checkpoint_path)
+          logging.info('\t• Model saved to {}'.format(checkpoint_path)) 
+      logging.info('------------------------------------') 
       epoch_loss.append(total_loss)
       average_loss = total_loss / len(train_loader)
       logging.info('Average Loss for Epoch #{}: {:.3f}'.format(epoch, average_loss))
