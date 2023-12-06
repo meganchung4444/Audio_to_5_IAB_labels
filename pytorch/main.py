@@ -88,7 +88,7 @@ def train(args):
 
   # Parallel
   print('GPU number: {}'.format(torch.cuda.device_count()))
-  model = torch.nn.DataParallel(model)
+  # model = torch.nn.DataParallel(model)
 
   # Dataset Class for training and validation
   training_dataset = AudioDataset(training_dataset_dir)
