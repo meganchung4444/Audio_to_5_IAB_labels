@@ -248,7 +248,7 @@ def plot_loss_and_f1(loss_arr, f1_arr, figures_path):
   plt.title('F1 Score and Loss over Epochs')
   plt.grid(True)
   filename = f"loss_and_f1_plot.png"
-  filepath = os.path.join(figures_path, filename) 
+  filepath = os.path.join("/content/figures/", filename) 
   
   plt.savefig(filepath)
   
