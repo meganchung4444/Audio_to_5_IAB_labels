@@ -114,7 +114,7 @@ def train(args):
       eps=1e-08, weight_decay=0., amsgrad=True)
     
   # Evaluator
-  evaluator = Evaluator(model=model, workspace)
+  evaluator = Evaluator(model=model, workspace=workspace)
   
   full_training_start = time.time()
   val_list = [] # list to check the best f1 score to determine the best checkpoint
