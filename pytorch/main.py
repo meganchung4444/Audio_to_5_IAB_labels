@@ -190,9 +190,9 @@ def train(args):
                       
           torch.save(checkpoint, checkpoint_path)
           logging.info('\t• Model saved to {}'.format(checkpoint_path)) 
+          logging.info('------------------------------------') 
       epoch_total_loss.append(total_loss)
       average_loss = total_loss / len(train_loader)
-      logging.info('------------------------------------') 
       logging.info('Average Loss for Epoch #{}: {:.3f}'.format(epoch, average_loss))
       logging.info('Total Training Time for Epoch #{}: {:.3f} s'.format(epoch, total_epoch_training_time))
 
