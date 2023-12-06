@@ -69,11 +69,8 @@ def train(args):
   create_logging(logs_dir, 'w')
   logging.info(args)
 
-  figures_path = os.path.join(workspace, 'figures', filename, 
-      'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
-      'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation), 
-      'batch_size={}'.format(batch_size), 'freeze_base={}'.format(freeze_base))
-  create_folder(os.path.dirname(figures_path))
+  # figures_path = os.path.join(workspace, 'testing_figures', filename)
+  # create_folder(os.path.dirname(figures_path))
 
   if 'cuda' in device:
       logging.info('Using GPU.')
@@ -248,7 +245,9 @@ def plot_loss_and_f1(loss_arr, f1_arr, figures_path):
   plt.title('F1 Score and Loss over Epochs')
   plt.grid(True)
   filename = f"loss_and_f1_plot.png"
-  filepath = os.path.join("/content/figures/", filename) 
+  folder = "/content/drive/MyDrive/GumGum/Notebooks/5_labels_results_pt2/figures"
+  # filepath = os.path.join("/content/figures/", filename) 
+  filepath = os.path.join(folder, filename) 
   
   plt.savefig(filepath)
   
