@@ -93,7 +93,7 @@ class Evaluator(object):
     f.colorbar(disp.im_, ax=axes)
 
     filename = f"epoch_cm_{self.png_counter}.png"
-    folder = f"{workspace}/figures"
+    folder = f"{self.workspace}/figures"
     if not os.path.exists(folder):
       os.makedirs(folder)
     filepath = os.path.join(folder, filename) 
