@@ -69,6 +69,12 @@ def train(args):
   create_logging(logs_dir, 'w')
   logging.info(args)
 
+  figures_path = os.path.join(workspace, 'figures', filename, 
+      'holdout_fold={}'.format(holdout_fold), model_type, 'pretrain={}'.format(pretrain), 
+      'loss_type={}'.format(loss_type), 'augmentation={}'.format(augmentation), 
+      'batch_size={}'.format(batch_size), 'freeze_base={}'.format(freeze_base))
+  create_folder(os.path.dirname(figures_path))
+
   if 'cuda' in device:
       logging.info('Using GPU.')
   else:
@@ -115,18 +121,19 @@ def train(args):
   
   full_training_start = time.time()
   val_list = [] # list to check the best f1 score to determine the best checkpoint
-  epoch_loss = [] # list to keep track of each epoch's loss
+  epoch_total_loss = [] # list to keep track of each epoch's loss
+  loss_arr = [] # list for the last loss of the batch
   # Training Loop
   for epoch in range(1, max_epoch + 1):
       print()
-
       # Train on Mini Batches
       batch_count = 0
       train_bgn_time = time.time()
       total_loss = 0
       total_epoch_training_time = 0
+      batch_loss = []
       for batch_data_dict in train_loader:
-          
+        
         # Move data to GPU
         for key in batch_data_dict.keys(): 
             batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
@@ -151,22 +158,22 @@ def train(args):
         total_loss += loss.item()
         train_time = time.time() - train_bgn_time 
         total_epoch_training_time += train_time
-        logging.info('Epoch #{} for Iteration #{}'.format(epoch, batch_count))
+        logging.info('Epoch #{} for Iteration #{}'.format(epoch, batch_count + 1))
         batch_count += 1
         logging.info('\t• Train Time: {:.3f} s'.format(train_time))
-        
         logging.info('\t• Loss: {:.3f}'.format(loss.item())) 
-
+        logging.info('------------------------------------') 
+        batch_loss.append(loss.item())
+      loss_arr.append(batch_loss[-1])
       # Evaluation for every 5th epoch
       if epoch % 5 == 0 and epoch > 0:
           model.eval()
 
           logging.info('Validation for Epoch #{}'.format(epoch))
-
           val_begin_time = time.time()
 
           statistics = evaluator.evaluate(validate_loader)
-          logging.info(f"\t• F1 Score: {statistics['f1']}")
+          logging.info(f"\t• F1 Score: {statistics['f1']:.3f}")
           logging.info(f"\t• Classification Report: {statistics['report']}")
           val_list.append(statistics["f1"])
 
@@ -177,15 +184,15 @@ def train(args):
       if epoch % 5 == 0 and epoch > 0:
           checkpoint = {
               'epoch': epoch, 
-              'model': model.module.state_dict() }
+              'model': model.state_dict() }
 
           checkpoint_path = os.path.join(checkpoints_dir, '{}_epochs.pth'.format(epoch))
                       
           torch.save(checkpoint, checkpoint_path)
           logging.info('\t• Model saved to {}'.format(checkpoint_path)) 
-      logging.info('------------------------------------') 
-      epoch_loss.append(total_loss)
+      epoch_total_loss.append(total_loss)
       average_loss = total_loss / len(train_loader)
+      logging.info('------------------------------------') 
       logging.info('Average Loss for Epoch #{}: {:.3f}'.format(epoch, average_loss))
       logging.info('Total Training Time for Epoch #{}: {:.3f} s'.format(epoch, total_epoch_training_time))
 
@@ -194,7 +201,7 @@ def train(args):
   logging.info('Average Overall Loss: {:.3f} s'.format(sum(epoch_loss)/len(epoch_loss))) 
   logging.info('Average Overall F1: {:.3f} s'.format(sum(val_list)/len(val_list))) 
   logging.info('Full Training Time: {:.3f} s'.format(total_training_time)) 
-  plot_loss_and_f1(epoch_loss, val_list)
+  plot_loss_and_f1(loss_arr, val_list, figures_path)
 
   # Find and Load in Best Checkpoint (based off F1 Score)
   best_checkpoint = np.argmax(np.array(val_list)) 
@@ -217,7 +224,7 @@ def train(args):
   testing_time = time.time() - testing_begin_time
   logging.info('Total Testing Time: {:.3f} s'.format(testing_time))
 
-def plot_loss_and_f1(loss_arr, f1_arr):
+def plot_loss_and_f1(loss_arr, f1_arr, figures_path):
 
   f1_range = list(range(5, 101, 5))  # for every 5th epoch
   loss_range = list(range(1, 101, 1))  # for all 100 epochs
@@ -241,7 +248,7 @@ def plot_loss_and_f1(loss_arr, f1_arr):
   plt.title('F1 Score and Loss over Epochs')
   plt.grid(True)
   filename = f"loss_and_f1_plot.png"
-  filepath = os.path.join("/content/figures/", filename) 
+  filepath = os.path.join(figures_path, filename) 
   
   plt.savefig(filepath)
   
