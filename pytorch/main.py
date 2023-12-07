@@ -222,7 +222,7 @@ def train(args):
   logging.info('Total Testing Time: {:.3f} s'.format(testing_time))
 
 def plot_loss_and_f1(loss_values, f1_values, workspace):
-  epochs = np.arrange(1, 101)
+  epochs = np.arange(1, 101)
   plt.plot(epochs, loss_values, label='Loss', color = 'blue')
   
   epochs_f1 = np.linspace(1, 100, 20)
