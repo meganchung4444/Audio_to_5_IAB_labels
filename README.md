@@ -21,7 +21,7 @@ Or run the commands in runme.sh line by line. The commands includes:
 (3) Train model
 
 ## Model
-A 14-layer CNN of PANNs is fine-tuned. We use 10-fold cross validation for IAB label classification. That is, 900 audio clips are used for training, and 100 audio clips are used for validation.
+A 14-layer CNN of PANNs is fine-tuned. We use 10-fold cross validation for IAB label classification. That is, 800 audio clips are used for training, 200 audio clips are used for validation, and another 200 for testing.
 
 ## Citation
 
