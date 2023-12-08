@@ -4,6 +4,8 @@ IAB label classification is a task to classify audio clips into different IAB la
 
 View our full report here on how we created the dataset and how we created our model: https://docs.google.com/presentation/d/10LhEUxOM6hpeT8t5M1WKPEtvoh_ltfPXeEt6nOOtCw4/edit?usp=sharing
 
+View our datasets (for both 5 and 20 labels): https://drive.google.com/drive/folders/1K6R_9ub4CpEoHgbHYRCNCHtHWKog48ec?usp=sharing
+
 **1. Requirements** 
 
 python 3.6 + pytorch 1.0
